@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "io-context.h"
+#include <workerd/io/io-context.h>
 #include <workerd/io/io-gate.h>
-#include "worker.h"
+#include <workerd/io/worker.h>
 #include <kj/threadlocal.h>
 #include <kj/debug.h>
 #include <workerd/jsg/jsg.h>

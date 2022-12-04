@@ -2,9 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "jsg.h"
-#include "setup.h"
-#include <execinfo.h>
+#include <workerd/jsg/jsg.h>
+#include <workerd/jsg/setup.h>
 #include <workerd/util/thread-scopes.h>
 
 namespace workerd::jsg {
@@ -27,17 +26,13 @@ kj::String stringifyHandle(v8::Local<v8::Value> value) {
 }
 
 JsExceptionThrown::JsExceptionThrown() {
-  traceSize = backtrace(trace, kj::size(trace));
-  for (auto& addr: kj::arrayPtr(trace, traceSize)) {
-    // Report call address, not return address.
-    addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) - 1);
-  }
+  tracePtr = kj::getStackTrace(trace, 0);
 }
 
 const char* JsExceptionThrown::what() const noexcept {
   whatBuffer = kj::str(
       "Uncaught JsExceptionThrown\nstack: ",
-      kj::stringifyStackTraceAddresses(kj::arrayPtr(trace, traceSize)));
+      kj::stringifyStackTraceAddresses(tracePtr));
   return whatBuffer.cStr();
 }
 

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "common.h"
+#include <workerd/api/streams/common.h>
 #include <workerd/io/io-context.h>
 
 namespace workerd::api {

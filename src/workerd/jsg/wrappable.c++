@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "wrappable.h"
-#include "jsg.h"
-#include "setup.h"
+#include <workerd/jsg/wrappable.h>
+#include <workerd/jsg/jsg.h>
+#include <workerd/jsg/setup.h>
 #include <kj/debug.h>
 
 namespace workerd::jsg {

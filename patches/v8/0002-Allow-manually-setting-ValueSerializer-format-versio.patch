@@ -1,7 +1,7 @@
 From a36011bb5e1e6247b225d8e1499931aa91c1c60a Mon Sep 17 00:00:00 2001
 From: James M Snell <jasnell@gmail.com>
 Date: Wed, 16 Mar 2022 08:59:21 -0700
-Subject: [PATCH 2/4] Allow manually setting ValueSerializer format version
+Subject: [PATCH 2/5] Allow manually setting ValueSerializer format version
 
 ---
  include/v8-value-serializer.h   |  5 +++++

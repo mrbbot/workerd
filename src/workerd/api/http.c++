@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "http.h"
-#include "system-streams.h"
-#include "util.h"
+#include <workerd/api/http.h>
+#include <workerd/api/system-streams.h>
+#include <workerd/api/util.h>
 #include <kj/encoding.h>
 #include <kj/compat/url.h>
 #include <kj/parse/char.h>
@@ -229,9 +229,15 @@ kj::Maybe<jsg::ByteString> Headers::get(jsg::ByteString name) {
 kj::ArrayPtr<jsg::ByteString> Headers::getAll(jsg::ByteString name) {
   requireValidHeaderName(name);
 
+  #ifdef _MSC_VER
+  if (_stricmp(name.cStr(), "set-cookie") != 0) {
+    JSG_FAIL_REQUIRE(TypeError, "getAll() can only be used with the header name \"Set-Cookie\".");
+  }
+  #else
   if (strcasecmp(name.cStr(), "set-cookie") != 0) {
     JSG_FAIL_REQUIRE(TypeError, "getAll() can only be used with the header name \"Set-Cookie\".");
   }
+  #endif
 
   auto iter = headers.find(toLower(kj::mv(name)));
   if (iter == headers.end()) {
@@ -926,12 +932,21 @@ jsg::Ref<AbortSignal> Request::getThisSignal(jsg::Lock& js) {
 }
 
 kj::Maybe<Request::Redirect> Request::tryParseRedirect(kj::StringPtr redirect) {
+  #ifdef _MSC_VER
+  if (_stricmp(redirect.cStr(), "follow") == 0) {
+    return Redirect::FOLLOW;
+  }
+  if (_stricmp(redirect.cStr(), "manual") == 0) {
+    return Redirect::MANUAL;
+  }
+  #else
   if (strcasecmp(redirect.cStr(), "follow") == 0) {
     return Redirect::FOLLOW;
   }
   if (strcasecmp(redirect.cStr(), "manual") == 0) {
     return Redirect::MANUAL;
   }
+  #endif
   return nullptr;
 }
 

@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "compression.h"
-#include "internal.h"
+#include <workerd/api/streams/compression.h>
+#include <workerd/api/streams/internal.h>
 #include <zlib.h>
 #include <deque>
 #include <vector>
@@ -172,7 +172,7 @@ public:
     KJ_SWITCH_ONEOF(state) {
       KJ_CASE_ONEOF(ended, Ended) {
         // There might still be data in the output buffer remaining to read.
-        if (output.empty()) return 0UL;
+        if (output.empty()) return size_t(0);
         return tryReadInternal(
             kj::ArrayPtr<kj::byte>(reinterpret_cast<kj::byte*>(buffer), maxBytes),
             minBytes);

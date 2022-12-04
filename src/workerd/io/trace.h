@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "jaeger.h"
+#include <workerd/io/jaeger.h>
 #include <kj/async.h>
 #include <kj/one-of.h>
 #include <kj/refcount.h>

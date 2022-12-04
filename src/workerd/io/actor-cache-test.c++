@@ -2,13 +2,13 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "actor-cache.h"
+#include <workerd/io/actor-cache.h>
 #include <kj/test.h>
 #include <kj/debug.h>
 #include <capnp/dynamic.h>
 #include <capnp/serialize-text.h>
 #include <kj/list.h>
-#include "io-gate.h"
+#include <workerd/io/io-gate.h>
 #include <kj/thread.h>
 #include <kj/source-location.h>
 #include <workerd/util/capnp-mock.h>

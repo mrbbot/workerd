@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "encoding.h"
-#include "util.h"
+#include <workerd/api/encoding.h>
+#include <workerd/api/util.h>
 #include <kj/encoding.h>
 #include <unicode/ucnv.h>
 #include <unicode/utf8.h>

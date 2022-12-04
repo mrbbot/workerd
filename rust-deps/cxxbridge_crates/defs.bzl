@@ -144,30 +144,30 @@ def all_crate_deps(
         build = False,
         build_proc_macro = False,
         package_name = None):
-    """Finds the fully qualified label of all requested direct crate dependencies \
-    for the package where this macro is called.
-
-    If no parameters are set, all normal dependencies are returned. Setting any one flag will
-    otherwise impact the contents of the returned list.
-
-    Args:
-        normal (bool, optional): If True, normal dependencies are included in the
-            output list.
-        normal_dev (bool, optional): If True, normla dev dependencies will be
-            included in the output list..
-        proc_macro (bool, optional): If True, proc_macro dependencies are included
-            in the output list.
-        proc_macro_dev (bool, optional): If True, dev proc_macro dependencies are
-            included in the output list.
-        build (bool, optional): If True, build dependencies are included
-            in the output list.
-        build_proc_macro (bool, optional): If True, build proc_macro dependencies are
-            included in the output list.
-        package_name (str, optional): The package name of the set of dependencies to look up.
-            Defaults to `native.package_name()` when unset.
-
-    Returns:
-        list: A list of labels to generated rust targets (str)
+    """Finds the fully qualified label of all requested direct crate dependencies \\\r
+    for the package where this macro is called.\r
+\r
+    If no parameters are set, all normal dependencies are returned. Setting any one flag will\r
+    otherwise impact the contents of the returned list.\r
+\r
+    Args:\r
+        normal (bool, optional): If True, normal dependencies are included in the\r
+            output list.\r
+        normal_dev (bool, optional): If True, normla dev dependencies will be\r
+            included in the output list..\r
+        proc_macro (bool, optional): If True, proc_macro dependencies are included\r
+            in the output list.\r
+        proc_macro_dev (bool, optional): If True, dev proc_macro dependencies are\r
+            included in the output list.\r
+        build (bool, optional): If True, build dependencies are included\r
+            in the output list.\r
+        build_proc_macro (bool, optional): If True, build proc_macro dependencies are\r
+            included in the output list.\r
+        package_name (str, optional): The package name of the set of dependencies to look up.\r
+            Defaults to `native.package_name()` when unset.\r
+\r
+    Returns:\r
+        list: A list of labels to generated rust targets (str)\r
     """
 
     if package_name == None:
@@ -291,7 +291,7 @@ def aliases(
 _NORMAL_DEPENDENCIES = {
     "": {
         _COMMON_CONDITION: {
-            "cxxbridge-cmd": "@cxxbridge_vendor__cxxbridge-cmd-1.0.75//:cxxbridge_cmd",
+            "cxxbridge-cmd": "@cxxbridge_vendor__cxxbridge-cmd-1.0.77//:cxxbridge_cmd",
         },
     },
 }
@@ -354,7 +354,7 @@ _BUILD_PROC_MACRO_ALIASES = {
 }
 
 _CONDITIONS = {
-    "cfg(windows)": [],
+    "cfg(windows)": ["x86_64-pc-windows-msvc"],
     "i686-pc-windows-gnu": [],
     "x86_64-pc-windows-gnu": [],
 }
@@ -385,12 +385,12 @@ def crate_repositories():
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__clap-3.2.20",
-        sha256 = "23b71c3ce99b7611011217b366d923f1d0a7e07a92bb2dbf1e84508c673ca3bd",
+        name = "cxxbridge_vendor__clap-3.2.23",
+        sha256 = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/clap/3.2.20/download"],
-        strip_prefix = "clap-3.2.20",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.clap-3.2.20.bazel"),
+        urls = ["https://crates.io/api/v1/crates/clap/3.2.23/download"],
+        strip_prefix = "clap-3.2.23",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.clap-3.2.23.bazel"),
     )
 
     maybe(
@@ -415,12 +415,12 @@ def crate_repositories():
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__cxxbridge-cmd-1.0.75",
-        sha256 = "8a52da0783cc7b86a140508e6918ef57419afccb4e766800247185b30244e961",
+        name = "cxxbridge_vendor__cxxbridge-cmd-1.0.77",
+        sha256 = "de38cfccf77ed5c524784e2bcbb8863287acd00af2f5d522370f27257ef86307",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/cxxbridge-cmd/1.0.75/download"],
-        strip_prefix = "cxxbridge-cmd-1.0.75",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.cxxbridge-cmd-1.0.75.bazel"),
+        urls = ["https://crates.io/api/v1/crates/cxxbridge-cmd/1.0.77/download"],
+        strip_prefix = "cxxbridge-cmd-1.0.77",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.cxxbridge-cmd-1.0.77.bazel"),
     )
 
     maybe(
@@ -435,32 +435,32 @@ def crate_repositories():
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__indexmap-1.9.1",
-        sha256 = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e",
+        name = "cxxbridge_vendor__indexmap-1.9.2",
+        sha256 = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/indexmap/1.9.1/download"],
-        strip_prefix = "indexmap-1.9.1",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.indexmap-1.9.1.bazel"),
+        urls = ["https://crates.io/api/v1/crates/indexmap/1.9.2/download"],
+        strip_prefix = "indexmap-1.9.2",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.indexmap-1.9.2.bazel"),
     )
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__os_str_bytes-6.3.0",
-        sha256 = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff",
+        name = "cxxbridge_vendor__os_str_bytes-6.4.1",
+        sha256 = "9b7820b9daea5457c9f21c69448905d723fbd21136ccf521748f23fd49e723ee",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/os_str_bytes/6.3.0/download"],
-        strip_prefix = "os_str_bytes-6.3.0",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.os_str_bytes-6.3.0.bazel"),
+        urls = ["https://crates.io/api/v1/crates/os_str_bytes/6.4.1/download"],
+        strip_prefix = "os_str_bytes-6.4.1",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.os_str_bytes-6.4.1.bazel"),
     )
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__proc-macro2-1.0.43",
-        sha256 = "0a2ca2c61bc9f3d74d2886294ab7b9853abd9c1ad903a3ac7815c58989bb7bab",
+        name = "cxxbridge_vendor__proc-macro2-1.0.47",
+        sha256 = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/proc-macro2/1.0.43/download"],
-        strip_prefix = "proc-macro2-1.0.43",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.proc-macro2-1.0.43.bazel"),
+        urls = ["https://crates.io/api/v1/crates/proc-macro2/1.0.47/download"],
+        strip_prefix = "proc-macro2-1.0.47",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.proc-macro2-1.0.47.bazel"),
     )
 
     maybe(
@@ -485,12 +485,12 @@ def crate_repositories():
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__syn-1.0.99",
-        sha256 = "58dbef6ec655055e20b86b15a8cc6d439cca19b667537ac6a1369572d151ab13",
+        name = "cxxbridge_vendor__syn-1.0.104",
+        sha256 = "4ae548ec36cf198c0ef7710d3c230987c2d6d7bd98ad6edc0274462724c585ce",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/syn/1.0.99/download"],
-        strip_prefix = "syn-1.0.99",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.syn-1.0.99.bazel"),
+        urls = ["https://crates.io/api/v1/crates/syn/1.0.104/download"],
+        strip_prefix = "syn-1.0.104",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.syn-1.0.104.bazel"),
     )
 
     maybe(
@@ -505,32 +505,32 @@ def crate_repositories():
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__textwrap-0.15.0",
-        sha256 = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb",
+        name = "cxxbridge_vendor__textwrap-0.16.0",
+        sha256 = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/textwrap/0.15.0/download"],
-        strip_prefix = "textwrap-0.15.0",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.textwrap-0.15.0.bazel"),
+        urls = ["https://crates.io/api/v1/crates/textwrap/0.16.0/download"],
+        strip_prefix = "textwrap-0.16.0",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.textwrap-0.16.0.bazel"),
     )
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__unicode-ident-1.0.3",
-        sha256 = "c4f5b37a154999a8f3f98cc23a628d850e154479cd94decf3414696e12e31aaf",
+        name = "cxxbridge_vendor__unicode-ident-1.0.5",
+        sha256 = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/unicode-ident/1.0.3/download"],
-        strip_prefix = "unicode-ident-1.0.3",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.unicode-ident-1.0.3.bazel"),
+        urls = ["https://crates.io/api/v1/crates/unicode-ident/1.0.5/download"],
+        strip_prefix = "unicode-ident-1.0.5",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.unicode-ident-1.0.5.bazel"),
     )
 
     maybe(
         http_archive,
-        name = "cxxbridge_vendor__unicode-width-0.1.9",
-        sha256 = "3ed742d4ea2bd1176e236172c8429aaf54486e7ac098db29ffe6529e0ce50973",
+        name = "cxxbridge_vendor__unicode-width-0.1.10",
+        sha256 = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b",
         type = "tar.gz",
-        urls = ["https://crates.io/api/v1/crates/unicode-width/0.1.9/download"],
-        strip_prefix = "unicode-width-0.1.9",
-        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.unicode-width-0.1.9.bazel"),
+        urls = ["https://crates.io/api/v1/crates/unicode-width/0.1.10/download"],
+        strip_prefix = "unicode-width-0.1.10",
+        build_file = Label("@workerd//rust-deps/cxxbridge_crates:BUILD.unicode-width-0.1.10.bazel"),
     )
 
     maybe(

@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "server.h"
+#include <workerd/server/server.h>
 #include <kj/debug.h>
 #include <kj/compat/http.h>
 #include <kj/compat/tls.h>
@@ -21,7 +21,11 @@
 #include <openssl/pem.h>
 #include <workerd/io/actor-cache.h>
 #include <workerd/api/actor-state.h>
-#include "workerd-api.h"
+#include <workerd/server/workerd-api.h>
+
+// #if _WIN32
+// #include <windows.h>
+// #endif
 
 namespace workerd::server {
 
@@ -68,8 +72,12 @@ static kj::String httpTime(kj::Date date) {
   // Returns a time string in the format HTTP likes to use.
 
   time_t time = (date - kj::UNIX_EPOCH) / kj::SECONDS;
+  #if _WIN32
+  auto tm = *gmtime(&time);
+  #else
   struct tm tm;
   KJ_ASSERT(gmtime_r(&time, &tm) == &tm);
+  #endif
   char buf[256];
   size_t n = strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
   KJ_ASSERT(n > 0);
@@ -350,7 +358,11 @@ public:
     if (style == config::HttpOptions::Style::HOST) {
       auto parsed = kj::Url::parse(url, kj::Url::HTTP_REQUEST,
           kj::Url::Options {.percentDecode = false, .allowEmpty = true});
-      parsed.host = kj::str(KJ_UNWRAP_OR_RETURN(headers.get(kj::HttpHeaderId::HOST), nullptr));
+      KJ_IF_MAYBE(host, headers.get(kj::HttpHeaderId::HOST)) {
+        parsed.host = kj::str(host);
+      } else {
+        return nullptr;
+      }
 
       KJ_IF_MAYBE(h, forwardedProtoHeader) {
         KJ_IF_MAYBE(s, headers.get(*h)) {
@@ -763,108 +775,108 @@ private:
         return response.sendError(404, "Not Found", headerTable);
       }
 
-      auto file = KJ_UNWRAP_OR(readable->tryOpenFile(path), {
+      KJ_IF_MAYBE(file, readable->tryOpenFile(path)) {
+        auto meta = (*file)->stat();
+
+        switch (meta.type) {
+          case kj::FsNode::Type::FILE: {
+            kj::HttpHeaders headers(headerTable);
+            headers.set(kj::HttpHeaderId::CONTENT_TYPE, "application/octet-stream");
+            headers.set(hLastModified, httpTime(meta.lastModified));
+
+            // We explicitly set the Content-Length header because if we don't, and we were called
+            // by a local Worker (without an actual HTTP connection in between), then the Worker
+            // will not see a Content-Length header, but being able to query the content length
+            // (especially with HEAD requests) is quite useful.
+            // TODO(cleanup): Arguably the implementation of `fetch()` should be adjusted so that
+            //   if no `Content-Length` header is returned, but the body size is known via the KJ
+            //   HTTP API, then the header shoud be filled in automatically. Unclear if this is safe
+            //   to change without a compat flag.
+            headers.set(kj::HttpHeaderId::CONTENT_LENGTH, kj::str(meta.size));
+
+            auto out = response.send(200, "OK", headers, meta.size);
+
+            if (method == kj::HttpMethod::HEAD) {
+              return kj::READY_NOW;
+            } else {
+              auto in = kj::heap<kj::FileInputStream>(**file);
+
+              return in->pumpTo(*out, meta.size)
+                  .ignoreResult()
+                  .attach(kj::mv(in), kj::mv(out), kj::mv(*file));
+            }
+          }
+          case kj::FsNode::Type::DIRECTORY: {
+            // Whoooops, we opened a directory. Back up and start over.
+
+            auto dir = readable->openSubdir(path);
+
+            kj::HttpHeaders headers(headerTable);
+            headers.set(kj::HttpHeaderId::CONTENT_TYPE, "application/json");
+            headers.set(hLastModified, httpTime(meta.lastModified));
+
+            // We intentionally don't provide the expected size here in order to reserve the right
+            // to switch to streaming directory listing in the future.
+            auto out = response.send(200, "OK", headers);
+
+            if (method == kj::HttpMethod::HEAD) {
+              return kj::READY_NOW;
+            } else {
+              auto entries = dir->listEntries();
+              kj::Vector<kj::String> jsonEntries(entries.size());
+              for (auto& entry: entries) {
+                if (!allowDotfiles && entry.name.startsWith(".")) {
+                  continue;
+                }
+
+                kj::StringPtr type = "other";
+                switch (entry.type) {
+                  case kj::FsNode::Type::FILE:             type = "file"           ; break;
+                  case kj::FsNode::Type::DIRECTORY:        type = "directory"      ; break;
+                  case kj::FsNode::Type::SYMLINK:          type = "symlink"        ; break;
+                  case kj::FsNode::Type::BLOCK_DEVICE:     type = "blockDevice"    ; break;
+                  case kj::FsNode::Type::CHARACTER_DEVICE: type = "characterDevice"; break;
+                  case kj::FsNode::Type::NAMED_PIPE:       type = "namedPipe"      ; break;
+                  case kj::FsNode::Type::SOCKET:           type = "socket"         ; break;
+                  case kj::FsNode::Type::OTHER:            type = "other"          ; break;
+                }
+
+                jsonEntries.add(kj::str(
+                    "{\"name\":\"", escapeJsonString(entry.name), "\","
+                    "\"type\":\"", type, "\"}"));
+              };
+
+              auto content = kj::str('[', kj::strArray(jsonEntries, ","), ']');
+
+              return out->write(content.begin(), content.size())
+                  .attach(kj::mv(content), kj::mv(out));
+            }
+          }
+          default:
+            return response.sendError(406, "Not Acceptable", headerTable);
+        }
+      } else {
         return response.sendError(404, "Not Found", headerTable);
-      });
-
-      auto meta = file->stat();
-
-      switch (meta.type) {
-        case kj::FsNode::Type::FILE: {
-          kj::HttpHeaders headers(headerTable);
-          headers.set(kj::HttpHeaderId::CONTENT_TYPE, "application/octet-stream");
-          headers.set(hLastModified, httpTime(meta.lastModified));
-
-          // We explicitly set the Content-Length header because if we don't, and we were called
-          // by a local Worker (without an actual HTTP connection in between), then the Worker
-          // will not see a Content-Length header, but being able to query the content length
-          // (especially with HEAD requests) is quite useful.
-          // TODO(cleanup): Arguably the implementation of `fetch()` should be adjusted so that
-          //   if no `Content-Length` header is returned, but the body size is known via the KJ
-          //   HTTP API, then the header shoud be filled in automatically. Unclear if this is safe
-          //   to change without a compat flag.
-          headers.set(kj::HttpHeaderId::CONTENT_LENGTH, kj::str(meta.size));
-
-          auto out = response.send(200, "OK", headers, meta.size);
-
-          if (method == kj::HttpMethod::HEAD) {
-            return kj::READY_NOW;
-          } else {
-            auto in = kj::heap<kj::FileInputStream>(*file);
-
-            return in->pumpTo(*out, meta.size)
-                .ignoreResult()
-                .attach(kj::mv(in), kj::mv(out), kj::mv(file));
-          }
-        }
-        case kj::FsNode::Type::DIRECTORY: {
-          // Whoooops, we opened a directory. Back up and start over.
-
-          auto dir = readable->openSubdir(path);
-
-          kj::HttpHeaders headers(headerTable);
-          headers.set(kj::HttpHeaderId::CONTENT_TYPE, "application/json");
-          headers.set(hLastModified, httpTime(meta.lastModified));
-
-          // We intentionally don't provide the expected size here in order to reserve the right
-          // to switch to streaming directory listing in the future.
-          auto out = response.send(200, "OK", headers);
-
-          if (method == kj::HttpMethod::HEAD) {
-            return kj::READY_NOW;
-          } else {
-            auto entries = dir->listEntries();
-            kj::Vector<kj::String> jsonEntries(entries.size());
-            for (auto& entry: entries) {
-              if (!allowDotfiles && entry.name.startsWith(".")) {
-                continue;
-              }
-
-              kj::StringPtr type = "other";
-              switch (entry.type) {
-                case kj::FsNode::Type::FILE:             type = "file"           ; break;
-                case kj::FsNode::Type::DIRECTORY:        type = "directory"      ; break;
-                case kj::FsNode::Type::SYMLINK:          type = "symlink"        ; break;
-                case kj::FsNode::Type::BLOCK_DEVICE:     type = "blockDevice"    ; break;
-                case kj::FsNode::Type::CHARACTER_DEVICE: type = "characterDevice"; break;
-                case kj::FsNode::Type::NAMED_PIPE:       type = "namedPipe"      ; break;
-                case kj::FsNode::Type::SOCKET:           type = "socket"         ; break;
-                case kj::FsNode::Type::OTHER:            type = "other"          ; break;
-              }
-
-              jsonEntries.add(kj::str(
-                  "{\"name\":\"", escapeJsonString(entry.name), "\","
-                  "\"type\":\"", type, "\"}"));
-            };
-
-            auto content = kj::str('[', kj::strArray(jsonEntries, ","), ']');
-
-            return out->write(content.begin(), content.size())
-                .attach(kj::mv(content), kj::mv(out));
-          }
-        }
-        default:
-          return response.sendError(406, "Not Acceptable", headerTable);
       }
     } else if (method == kj::HttpMethod::PUT) {
-      auto& w = KJ_UNWRAP_OR(writable, {
+      KJ_IF_MAYBE(w, writable) {
+        if (blockedPath) {
+          return response.sendError(403, "Unauthorized", headerTable);
+        }
+
+        auto replacer = w->replaceFile(path,
+            kj::WriteMode::CREATE | kj::WriteMode::MODIFY | kj::WriteMode::CREATE_PARENT);
+        auto stream = kj::heap<kj::FileOutputStream>(replacer->get());
+
+        return requestBody.pumpTo(*stream).attach(kj::mv(stream))
+            .then([this, replacer = kj::mv(replacer), &response](uint64_t) mutable {
+          replacer->commit();
+          kj::HttpHeaders headers(headerTable);
+          response.send(204, "No Content", headers);
+        });
+      } else {
         return response.sendError(405, "Method Not Allowed", headerTable);
-      });
-
-      if (blockedPath) {
-        return response.sendError(403, "Unauthorized", headerTable);
       }
-
-      auto replacer = w.replaceFile(path,
-          kj::WriteMode::CREATE | kj::WriteMode::MODIFY | kj::WriteMode::CREATE_PARENT);
-      auto stream = kj::heap<kj::FileOutputStream>(replacer->get());
-
-      return requestBody.pumpTo(*stream).attach(kj::mv(stream))
-          .then([this, replacer = kj::mv(replacer), &response](uint64_t) mutable {
-        replacer->commit();
-        kj::HttpHeaders headers(headerTable);
-        response.send(204, "No Content", headers);
-      });
     } else {
       return response.sendError(501, "Not Implemented", headerTable);
     }
@@ -907,21 +919,21 @@ kj::Own<Server::Service> Server::makeDiskDirectoryService(
   auto path = fs.getCurrentPath().evalNative(pathStr);
 
   if (conf.getWritable()) {
-    auto openDir = KJ_UNWRAP_OR(fs.getRoot().tryOpenSubdir(kj::mv(path), kj::WriteMode::MODIFY), {
+    KJ_IF_MAYBE(openDir, fs.getRoot().tryOpenSubdir(kj::mv(path), kj::WriteMode::MODIFY)) {
+      return kj::heap<DiskDirectoryService>(conf, kj::mv(*openDir), headerTableBuilder);
+    } else {
       reportConfigError(kj::str(
           "Directory named \"", name, "\" not found: ", pathStr));
       return makeInvalidConfigService();
-    });
-
-    return kj::heap<DiskDirectoryService>(conf, kj::mv(openDir), headerTableBuilder);
+    }
   } else {
-    auto openDir = KJ_UNWRAP_OR(fs.getRoot().tryOpenSubdir(kj::mv(path)), {
+    KJ_IF_MAYBE(openDir, fs.getRoot().tryOpenSubdir(kj::mv(path))) {
+      return kj::heap<DiskDirectoryService>(conf, kj::mv(*openDir), headerTableBuilder);
+    } else {
       reportConfigError(kj::str(
           "Directory named \"", name, "\" not found: ", pathStr));
       return makeInvalidConfigService();
-    });
-
-    return kj::heap<DiskDirectoryService>(conf, kj::mv(openDir), headerTableBuilder);
+    }
   }
 }
 
@@ -1023,52 +1035,52 @@ public:
     } else if (url.endsWith("/json") || url.endsWith("/json/list")) {
       responseHeaders.set(kj::HttpHeaderId::CONTENT_TYPE, "application/json"_kj);
 
-      auto baseWsUrl = KJ_UNWRAP_OR(headers.get(kj::HttpHeaderId::HOST), {
-        return response.sendError(400, "Bad Request", responseHeaders);
-      });
-
-      kj::Vector<kj::String> entries(isolates.size());
-      kj::Vector<kj::String> toRemove;
-      for (auto& entry : isolates) {
-        // While we don't actually use the strong ref here we still attempt to acquire it
-        // in order to determine if the isolate is actually still around. If the isolate
-        // has been destroyed the weak ref will be cleared. We do it this way to keep from
-        // having the Worker::Isolate know anything at all about the InspectorService.
-        // We'll lazily clean up whenever we detect that the ref has been invalidated.
-        //
-        // TODO(cleanup): If we ever enable reloading of isolates for live services, we may
-        // want to refactor this such thatthe WorkerService holds a handle to the registration
-        // as opposed to using this lazy cleanup mechanism. For now, however, this is
-        // sufficient.
-        KJ_IF_MAYBE(ref, entry.value->tryAddStrongRef()) {
-          kj::Vector<kj::String> fields(9);
-          fields.add(kj::str("\"id\":\"", entry.key ,"\""));
-          fields.add(kj::str("\"title\":\"workerd: worker ", entry.key ,"\""));
-          fields.add(kj::str("\"type\":\"node\""));
-          fields.add(kj::str("\"description\":\"workerd worker\""));
-          fields.add(kj::str("\"webSocketDebuggerUrl\":\"ws://",
-                              baseWsUrl ,"/", entry.key ,"\""));
-          fields.add(kj::str("\"devtoolsFrontendUrl\":\"devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=", baseWsUrl ,"/\""));
-          fields.add(kj::str("\"devtoolsFrontendUrlCompat\":\"devtools://devtools/bundled/inspector.html?experiments=true&v8only=true&ws=", baseWsUrl ,"/\""));
-          fields.add(kj::str("\"faviconUrl\":\"https://workers.cloudflare.com/favicon.ico\""));
-          fields.add(kj::str("\"url\":\"https://workers.dev\""));
-          entries.add(kj::str('{', kj::strArray(fields, ",") ,'}'));
-        } else {
-          // If we're not able to get a reference to the isolate here, it's
-          // been cleaned up and we should remove it from the list. We do this
-          // after iterating to make sure we don't invalidate the iterator.
-          toRemove.add(kj::str(entry.key));
+      KJ_IF_MAYBE(baseWsUrl, headers.get(kj::HttpHeaderId::HOST)) {
+        kj::Vector<kj::String> entries(isolates.size());
+        kj::Vector<kj::String> toRemove;
+        for (auto& entry : isolates) {
+          // While we don't actually use the strong ref here we still attempt to acquire it
+          // in order to determine if the isolate is actually still around. If the isolate
+          // has been destroyed the weak ref will be cleared. We do it this way to keep from
+          // having the Worker::Isolate know anything at all about the InspectorService.
+          // We'll lazily clean up whenever we detect that the ref has been invalidated.
+          //
+          // TODO(cleanup): If we ever enable reloading of isolates for live services, we may
+          // want to refactor this such thatthe WorkerService holds a handle to the registration
+          // as opposed to using this lazy cleanup mechanism. For now, however, this is
+          // sufficient.
+          KJ_IF_MAYBE(ref, entry.value->tryAddStrongRef()) {
+            kj::Vector<kj::String> fields(9);
+            fields.add(kj::str("\"id\":\"", entry.key ,"\""));
+            fields.add(kj::str("\"title\":\"workerd: worker ", entry.key ,"\""));
+            fields.add(kj::str("\"type\":\"node\""));
+            fields.add(kj::str("\"description\":\"workerd worker\""));
+            fields.add(kj::str("\"webSocketDebuggerUrl\":\"ws://",
+                                baseWsUrl ,"/", entry.key ,"\""));
+            fields.add(kj::str("\"devtoolsFrontendUrl\":\"devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=", baseWsUrl ,"/\""));
+            fields.add(kj::str("\"devtoolsFrontendUrlCompat\":\"devtools://devtools/bundled/inspector.html?experiments=true&v8only=true&ws=", baseWsUrl ,"/\""));
+            fields.add(kj::str("\"faviconUrl\":\"https://workers.cloudflare.com/favicon.ico\""));
+            fields.add(kj::str("\"url\":\"https://workers.dev\""));
+            entries.add(kj::str('{', kj::strArray(fields, ",") ,'}'));
+          } else {
+            // If we're not able to get a reference to the isolate here, it's
+            // been cleaned up and we should remove it from the list. We do this
+            // after iterating to make sure we don't invalidate the iterator.
+            toRemove.add(kj::str(entry.key));
+          }
         }
-      }
-      // Clean up if necessary
-      for (auto& key : toRemove) {
-        isolates.erase(key);
-      }
+        // Clean up if necessary
+        for (auto& key : toRemove) {
+          isolates.erase(key);
+        }
 
-      auto content = kj::str('[', kj::strArray(entries, ","), ']');
+        auto content = kj::str('[', kj::strArray(entries, ","), ']');
 
-      auto out = response.send(200, "OK", responseHeaders, content.size());
-      return out->write(content.begin(), content.size()).attach(kj::mv(content), kj::mv(out));
+        auto out = response.send(200, "OK", responseHeaders, content.size());
+        return out->write(content.begin(), content.size()).attach(kj::mv(content), kj::mv(out));
+      } else {
+        return response.sendError(400, "Bad Request", responseHeaders);
+      }
     }
 
     return response.sendError(500, "Not yet implemented", responseHeaders);
@@ -1639,35 +1651,37 @@ kj::Own<Server::Service> Server::makeWorker(kj::StringPtr name, config::Worker::
           }
           case config::Worker::Binding::CryptoKey::PKCS8: {
             keyGlobal.format = kj::str("pkcs8");
-            auto pem = KJ_UNWRAP_OR(decodePem(keyConf.getPkcs8()), {
+            KJ_IF_MAYBE(pem, decodePem(keyConf.getPkcs8())) {
+              if (pem->type != "PRIVATE KEY") {
+                errorReporter.addError(kj::str(
+                    "CryptoKey binding \"", binding.getName(), "\" contained wrong PEM type, "
+                    "expected \"PRIVATE KEY\" but got \"", pem->type, "\"."));
+                continue;
+              }
+              keyGlobal.keyData = kj::mv(pem->data);
+              goto validFormat;
+            } else {
               errorReporter.addError(kj::str(
                   "CryptoKey binding \"", binding.getName(), "\" contained invalid PEM format."));
               continue;
-            });
-            if (pem.type != "PRIVATE KEY") {
-              errorReporter.addError(kj::str(
-                  "CryptoKey binding \"", binding.getName(), "\" contained wrong PEM type, "
-                  "expected \"PRIVATE KEY\" but got \"", pem.type, "\"."));
-              continue;
             }
-            keyGlobal.keyData = kj::mv(pem.data);
-            goto validFormat;
           }
           case config::Worker::Binding::CryptoKey::SPKI: {
             keyGlobal.format = kj::str("spki");
-            auto pem = KJ_UNWRAP_OR(decodePem(keyConf.getSpki()), {
+            KJ_IF_MAYBE(pem, decodePem(keyConf.getSpki())) {
+              if (pem->type != "PUBLIC KEY") {
+                errorReporter.addError(kj::str(
+                    "CryptoKey binding \"", binding.getName(), "\" contained wrong PEM type, "
+                    "expected \"PUBLIC KEY\" but got \"", pem->type, "\"."));
+                continue;
+              }
+              keyGlobal.keyData = kj::mv(pem->data);
+              goto validFormat;
+            } else {
               errorReporter.addError(kj::str(
                   "CryptoKey binding \"", binding.getName(), "\" contained invalid PEM format."));
               continue;
-            });
-            if (pem.type != "PUBLIC KEY") {
-              errorReporter.addError(kj::str(
-                  "CryptoKey binding \"", binding.getName(), "\" contained wrong PEM type, "
-                  "expected \"PUBLIC KEY\" but got \"", pem.type, "\"."));
-              continue;
             }
-            keyGlobal.keyData = kj::mv(pem.data);
-            goto validFormat;
           }
           case config::Worker::Binding::CryptoKey::JWK:
             keyGlobal.format = kj::str("jwk");
@@ -1723,28 +1737,32 @@ kj::Own<Server::Service> Server::makeWorker(kj::StringPtr name, config::Worker::
         auto actorBinding = binding.getDurableObjectNamespace();
         const ActorConfig* actorConfig;
         if (actorBinding.hasServiceName()) {
-          auto& svcMap = KJ_UNWRAP_OR(actorConfigs.find(actorBinding.getServiceName()), {
+          KJ_IF_MAYBE(svcMap, actorConfigs.find(actorBinding.getServiceName())) {
+            KJ_IF_MAYBE(someActorConfig, svcMap->find(actorBinding.getClassName())) {
+              actorConfig = someActorConfig;
+            } else {
+              errorReporter.addError(kj::str(
+                  errorContext, " refers to a Durable Object namespace named \"",
+                  actorBinding.getClassName(), "\" in service \"", actorBinding.getServiceName(),
+                  "\", but no such Durable Object namespace is defined by that service."));
+              continue;
+            }
+          } else {
             errorReporter.addError(kj::str(
                 errorContext, " refers to a service \"", actorBinding.getServiceName(),
                 "\", but no such service is defined."));
             continue;
-          });
-
-          actorConfig = &KJ_UNWRAP_OR(svcMap.find(actorBinding.getClassName()), {
-            errorReporter.addError(kj::str(
-                errorContext, " refers to a Durable Object namespace named \"",
-                actorBinding.getClassName(), "\" in service \"", actorBinding.getServiceName(),
-                "\", but no such Durable Object namespace is defined by that service."));
-            continue;
-          });
+          }
         } else {
-          actorConfig = &KJ_UNWRAP_OR(localActorConfigs.find(actorBinding.getClassName()), {
+          KJ_IF_MAYBE(someActorConfig, localActorConfigs.find(actorBinding.getClassName())) {
+            actorConfig = someActorConfig;
+          } else {
             errorReporter.addError(kj::str(
                 errorContext, " refers to a Durable Object namespace named \"",
                 actorBinding.getClassName(), "\", but no such Durable Object namespace is defined "
                 "by this Worker."));
             continue;
-          });
+          }
         }
 
         KJ_SWITCH_ONEOF(*actorConfig) {
@@ -1851,12 +1869,13 @@ kj::Own<Server::Service> Server::makeWorker(kj::StringPtr name, config::Worker::
     auto actors = KJ_MAP(channel, actorChannels) -> kj::Maybe<WorkerService::ActorNamespace&> {
       WorkerService* targetService = &workerService;
       if (channel.designator.hasServiceName()) {
-        auto& svc = KJ_UNWRAP_OR(this->services.find(channel.designator.getServiceName()), {
-          // error was reported earlier
-          return nullptr;
-        });
-        targetService = dynamic_cast<WorkerService*>(svc.get());
-        if (targetService == nullptr) {
+        KJ_IF_MAYBE(svc, this->services.find(channel.designator.getServiceName())) {
+          targetService = dynamic_cast<WorkerService*>(svc->get());
+          if (targetService == nullptr) {
+            // error was reported earlier
+            return nullptr;
+          }
+        } else {
           // error was reported earlier
           return nullptr;
         }
@@ -1928,33 +1947,33 @@ void Server::taskFailed(kj::Exception&& exception) {
 Server::Service& Server::lookupService(
     config::ServiceDesignator::Reader designator, kj::String errorContext) {
   kj::StringPtr targetName = designator.getName();
-  Service* service = KJ_UNWRAP_OR(services.find(targetName), {
+  KJ_IF_MAYBE(service, services.find(targetName)) {
+    if (designator.hasEntrypoint()) {
+      kj::StringPtr entrypointName = designator.getEntrypoint();
+      if (WorkerService* worker = dynamic_cast<WorkerService*>(&(**service))) {
+        KJ_IF_MAYBE(ep, worker->getEntrypoint(entrypointName)) {
+          return *ep;
+        } else {
+          reportConfigError(kj::str(
+              errorContext, " refers to service \"", targetName, "\" with a named entrypoint \"",
+              entrypointName, "\", but \"", targetName, "\" has no such named entrypoint."));
+          return *invalidConfigServiceSingleton;
+        }
+      } else {
+        reportConfigError(kj::str(
+            errorContext, " refers to service \"", targetName, "\" with a named entrypoint \"",
+            entrypointName, "\", but \"", targetName, "\" is not a Worker, so does not have any "
+            "named entrypoints."));
+        return *invalidConfigServiceSingleton;
+      }
+    } else {
+      return **service;
+    }
+  } else {
     reportConfigError(kj::str(
         errorContext, " refers to a service \"", targetName,
         "\", but no such service is defined."));
     return *invalidConfigServiceSingleton;
-  });
-
-  if (designator.hasEntrypoint()) {
-    kj::StringPtr entrypointName = designator.getEntrypoint();
-    if (WorkerService* worker = dynamic_cast<WorkerService*>(service)) {
-      KJ_IF_MAYBE(ep, worker->getEntrypoint(entrypointName)) {
-        return *ep;
-      } else {
-        reportConfigError(kj::str(
-            errorContext, " refers to service \"", targetName, "\" with a named entrypoint \"",
-            entrypointName, "\", but \"", targetName, "\" has no such named entrypoint."));
-        return *invalidConfigServiceSingleton;
-      }
-    } else {
-      reportConfigError(kj::str(
-          errorContext, " refers to service \"", targetName, "\" with a named entrypoint \"",
-          entrypointName, "\", but \"", targetName, "\" is not a Worker, so does not have any "
-          "named entrypoints."));
-      return *invalidConfigServiceSingleton;
-    }
-  } else {
-    return *service;
   }
 }
 
@@ -2082,14 +2101,14 @@ private:
       }
 
       if (parent.rewriter->needsRewriteRequest() || cfBlobJson != nullptr) {
-        auto rewrite = KJ_UNWRAP_OR(
-            parent.rewriter->rewriteIncomingRequest(
-                url, parent.physicalProtocol, headers, metadata.cfBlobJson), {
+        KJ_IF_MAYBE(rewrite, parent.rewriter->rewriteIncomingRequest(
+             url, parent.physicalProtocol, headers, metadata.cfBlobJson)) {
+          auto worker = parent.service.startRequest(kj::mv(metadata));
+          return worker->request(method, url, *rewrite->headers, requestBody, *wrappedResponse)
+              .attach(kj::mv(rewrite), kj::mv(worker), kj::mv(ownResponse));
+        } else {
           return response.sendError(400, "Bad Request", parent.headerTable);
-        });
-        auto worker = parent.service.startRequest(kj::mv(metadata));
-        return worker->request(method, url, *rewrite.headers, requestBody, *wrappedResponse)
-            .attach(kj::mv(rewrite), kj::mv(worker), kj::mv(ownResponse));
+        }
       } else {
         auto worker = parent.service.startRequest(kj::mv(metadata));
         return worker->request(method, url, headers, requestBody, *wrappedResponse)

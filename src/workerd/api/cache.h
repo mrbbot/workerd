@@ -6,8 +6,8 @@
 
 #include <workerd/jsg/jsg.h>
 #include <kj/async.h>
-#include "util.h"
-#include "http.h"
+#include <workerd/api/util.h>
+#include <workerd/api/http.h>
 
 namespace workerd::api {
 

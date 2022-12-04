@@ -33,13 +33,24 @@ rules_foreign_cc_dependencies()
 # ========================================================================================
 # Simple dependencies
 
-http_archive(
+# http_archive(
+#     name = "capnp-cpp",
+#     sha256 = "7ccdf8eeed127d439bc8a94d5742f87d3e5e305f13c3bbb2797005eb6705bf98",
+#     strip_prefix = "capnproto-capnproto-d0e3946/c++",
+#     type = "tgz",
+#     urls = ["https://github.com/capnproto/capnproto/tarball/d0e3946787b635c7196ded373ae867642e0cf5c7"],
+# )
+git_repository(
     name = "capnp-cpp",
-    sha256 = "7ccdf8eeed127d439bc8a94d5742f87d3e5e305f13c3bbb2797005eb6705bf98",
-    strip_prefix = "capnproto-capnproto-d0e3946/c++",
-    type = "tgz",
-    urls = ["https://github.com/capnproto/capnproto/tarball/d0e3946787b635c7196ded373ae867642e0cf5c7"],
+    remote = "https://github.com/mrbbot/capnproto.git",
+    commit = "21ee216c6ffd3a59b8a9273872475ec5872d34c2",
+    strip_prefix = "c++",
+    shallow_since = "1669630416 +0000",
 )
+# local_repository(
+#     name = "capnp-cpp",
+#     path = "C:\\Users\\me\\Desktop\\capnproto\\c++"
+# )
 
 http_archive(
     name = "ssl",
@@ -122,6 +133,16 @@ http_file(
     urls = [
         "https://github.com/bazelbuild/rules_rust/releases/download/0.10.0/cargo-bazel-aarch64-apple-darwin",
     ],
+)
+
+http_file(
+    name = "cargo_bazel_win_x64",
+    executable = True,
+    sha256 = "a57c496e8ff9d1b2dcd4f6a3a43c41ed0c54e9f3d48183ed411097c3590176d3",
+    urls = [
+        "https://github.com/bazelbuild/rules_rust/releases/download/0.10.0/cargo-bazel-x86_64-pc-windows-msvc.exe",
+    ],
+    downloaded_file_path = "downloaded.exe" # .exe extension required for Windows to recognise as executable
 )
 
 http_archive(
@@ -233,6 +254,7 @@ git_repository(
         "//:patches/v8/0002-Allow-manually-setting-ValueSerializer-format-versio.patch",
         "//:patches/v8/0003-Make-icudata-target-public.patch",
         "//:patches/v8/0004-Add-ArrayBuffer-MaybeNew.patch",
+        "//:patches/v8/0005-Allow-Windows-builds-under-Bazel.patch",
     ],
 )
 
@@ -242,7 +264,8 @@ new_git_repository(
     commit = "b3070c52557323463e6b9827e2343e60e1b91f85",
     shallow_since = "1660168635 +0000",
     build_file = "@v8//:bazel/BUILD.icu",
-    patch_cmds = [ "find source -name BUILD.bazel | xargs rm" ]
+    patch_cmds = [ "find source -name BUILD.bazel | xargs rm" ],
+    patch_cmds_win = [ "Get-ChildItem -Path source -File -Include BUILD.bazel -Recurse | Remove-Item" ],
 )
 
 new_git_repository(

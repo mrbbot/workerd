@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "util.h"
-#include "wrappable.h"
-#include "jsg.h"
-#include "web-idl.h"
+#include <workerd/jsg/util.h>
+#include <workerd/jsg/wrappable.h>
+#include <workerd/jsg/jsg.h>
+#include <workerd/jsg/web-idl.h>
 
 namespace workerd::jsg {
 

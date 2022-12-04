@@ -8,11 +8,16 @@
 #include <kj/async-io.h>
 #include <kj/vector.h>
 #include <workerd/io/io-context.h>
-#include "../basics.h"
-#include "../util.h"
+#include <workerd/api/basics.h>
+#include <workerd/api/util.h>
 
 #include <deque>
 #include <queue>
+
+#ifdef _MSC_VER
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
 
 namespace workerd::api {
 

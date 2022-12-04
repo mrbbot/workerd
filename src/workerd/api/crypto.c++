@@ -2,13 +2,13 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "crypto.h"
-#include "crypto-impl.h"
+#include <workerd/api/crypto.h>
+#include <workerd/api/crypto-impl.h>
 #include <array>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <workerd/jsg/jsg.h>
-#include "util.h"
+#include <workerd/api/util.h>
 #include <workerd/io/io-context.h>
 #include <workerd/util/uuid.h>
 #include <map>
@@ -16,7 +16,10 @@
 #include <algorithm>
 #include <limits>
 #include <typeinfo>
+
+#ifndef _MSC_VER
 #include <strings.h>
+#endif
 
 namespace workerd::api {
 
@@ -40,10 +43,10 @@ CryptoKeyUsageSet CryptoKeyUsageSet::byName(kj::StringPtr name) {
 }
 
 kj::ArrayPtr<const CryptoKeyUsageSet> CryptoKeyUsageSet::singletons() {
-  static const std::array<const CryptoKeyUsageSet, 8> singletons = {
+  static const kj::Array<const workerd::api::CryptoKeyUsageSet> singletons = kj::arr(
     encrypt(), decrypt(), sign(), verify(), deriveKey(), deriveBits(), wrapKey(), unwrapKey()
-  };
-  return kj::ArrayPtr<const CryptoKeyUsageSet>(singletons.begin(), 8);
+  );
+  return singletons.asPtr();
 }
 
 CryptoKeyUsageSet CryptoKeyUsageSet::validate(kj::StringPtr normalizedName, Context ctx,
@@ -148,10 +151,17 @@ void validateOperation(
   // TODO(cleanup): Make this function go away. Maybe this can be rolled into the default
   //   implementations of the CryptoKey::Impl::<crypto operation>() functions.
 
+  #if _MSC_VER
+  JSG_REQUIRE(_stricmp(requestedName.cStr(), key.getAlgorithmName().cStr()) == 0,
+      DOMInvalidAccessError,
+      "Requested algorithm \"", requestedName, "\" does not match this CryptoKey's algorithm \"",
+      key.getAlgorithmName() ,"\".");
+  #else
   JSG_REQUIRE(strcasecmp(requestedName.cStr(), key.getAlgorithmName().cStr()) == 0,
       DOMInvalidAccessError,
       "Requested algorithm \"", requestedName, "\" does not match this CryptoKey's algorithm \"",
       key.getAlgorithmName() ,"\".");
+  #endif
   JSG_REQUIRE(usage <= key.getUsageSet(), DOMInvalidAccessError, "Requested key usage \"",
       usage.name(), "\" does not match any usage listed in this CryptoKey.");
 }

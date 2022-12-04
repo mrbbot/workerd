@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "url.h"
-#include "util.h"
+#include <workerd/api/url.h>
+#include <workerd/api/util.h>
 #include <kj/encoding.h>
 #include <kj/string-tree.h>
 #include <kj/parse/char.h>

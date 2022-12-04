@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "encoding.h"
-#include "../encoding.h"
+#include <workerd/api/streams/encoding.h>
+#include <workerd/api/encoding.h>
 #include <workerd/jsg/buffersource.h>
 
 namespace workerd::api {

@@ -5,8 +5,8 @@
 #pragma once
 // Common JSG testing infrastructure
 
-#include "jsg.h"
-#include "setup.h"
+#include <workerd/jsg/jsg.h>
+#include <workerd/jsg/setup.h>
 #include <kj/test.h>
 
 namespace workerd::jsg::test {

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "transform.h"
+#include <workerd/api/streams/transform.h>
 #include <workerd/jsg/jsg.h>
 
 namespace workerd::api {

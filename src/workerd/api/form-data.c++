@@ -2,16 +2,19 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "form-data.h"
-#include "util.h"
+#include <workerd/api/form-data.h>
+#include <workerd/api/util.h>
 #include <kj/vector.h>
 #include <kj/encoding.h>
 #include <algorithm>
 #include <functional>
 #include <regex>
-#include <strings.h>
 #include <kj/parse/char.h>
 #include <kj/compat/http.h>
+
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
 
 namespace workerd::api {
 
@@ -310,10 +313,17 @@ void FormData::parse(kj::ArrayPtr<const char> rawText, kj::StringPtr contentType
     // TODO(conform): Transcode to UTF-8, like the spec tells us to.
     KJ_IF_MAYBE(charsetParam, readContentTypeParameter(contentType, "charset")) {
       auto charset = kj::str(*charsetParam);
+      #ifdef _MSC_VER
+      JSG_REQUIRE(_stricmp(charset.cStr(), "utf-8") == 0 ||
+                 _stricmp(charset.cStr(), "utf8") == 0 ||
+                 _stricmp(charset.cStr(), "unicode-1-1-utf-8") == 0,
+          TypeError, "Non-utf-8 application/x-www-form-urlencoded body.");
+      #else
       JSG_REQUIRE(strcasecmp(charset.cStr(), "utf-8") == 0 ||
                  strcasecmp(charset.cStr(), "utf8") == 0 ||
                  strcasecmp(charset.cStr(), "unicode-1-1-utf-8") == 0,
           TypeError, "Non-utf-8 application/x-www-form-urlencoded body.");
+      #endif
     }
     kj::Vector<kj::Url::QueryParam> query;
     parseQueryString(query, kj::mv(rawText));

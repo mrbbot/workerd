@@ -7,7 +7,7 @@
 //
 // Don't include this file unless your name is "crypto*.c++".
 
-#include "crypto.h"
+#include <workerd/api/crypto.h>
 #include <openssl/evp.h>
 
 #define OSSLCALL(...) if ((__VA_ARGS__) != 1) \
@@ -210,10 +210,18 @@ struct CryptoAlgorithm {
   //   making `RemoveConstOrDisable` recognize function references are inherenly const.
 
   inline bool operator==(const CryptoAlgorithm& other) const {
+    #ifdef _MSC_VER
+    return _stricmp(name.cStr(), other.name.cStr()) == 0;
+    #else
     return strcasecmp(name.cStr(), other.name.cStr()) == 0;
+    #endif
   }
   inline bool operator< (const CryptoAlgorithm& other) const {
+    #ifdef _MSC_VER
+    return _stricmp(name.cStr(), other.name.cStr()) < 0;
+    #else
     return strcasecmp(name.cStr(), other.name.cStr()) < 0;
+    #endif
   }
   // Allow comparison by name, case-insensitive. This is a convenience for placing in an std::set.
   //
@@ -243,12 +251,21 @@ protected:
 template <typename T, void (*sslFree)(T*)>
 const SslDisposer<T, sslFree> SslDisposer<T, sslFree>::INSTANCE;
 
+#if _MSC_VER && !defined(__clang__)
+#define OSSLCALL_OWN(T, code, ...) \
+  ([&] { \
+    T* result = code; \
+    JSG_REQUIRE(result != nullptr, ##__VA_ARGS__); \
+    return kj::Own<T>(result, workerd::api::SslDisposer<T, &T##_free>::INSTANCE); \
+  }())
+#else
 #define OSSLCALL_OWN(T, code, ...) \
   ({ \
     T* result = code; \
     JSG_REQUIRE(result != nullptr, ##__VA_ARGS__); \
     kj::Own<T>(result, workerd::api::SslDisposer<T, &T##_free>::INSTANCE); \
   })
+#endif
 
 #define OSSL_NEW(T, ...) \
   OSSLCALL_OWN(T, T##_new(__VA_ARGS__), InternalDOMOperationError, "Error allocating crypto")

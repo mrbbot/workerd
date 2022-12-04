@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "standard.h"
-#include "readable.h"
-#include "writable.h"
+#include <workerd/api/streams/standard.h>
+#include <workerd/api/streams/readable.h>
+#include <workerd/api/streams/writable.h>
 #include <workerd/jsg/buffersource.h>
 #include <iterator>
 

@@ -12,8 +12,13 @@
 // This is an anti-pattern and these should be considered HORRIBLE HACKS... but they get their jobs
 // done for the time being.
 
+
 #include <kj/common.h>
 #include <inttypes.h>
+
+#ifdef _WIN32
+#include <atomic> // std::atomic_uint64_t
+#endif
 
 namespace workerd {
 
@@ -70,7 +75,11 @@ class ThreadProgressCounter {
   // may block for longer than the watchdog timeout, but can still observe forward progress.
 
 public:
+#ifdef _WIN32
+  explicit ThreadProgressCounter(std::atomic_uint64_t& counter);
+#else
   explicit ThreadProgressCounter(uint64_t& counter);
+#endif
   // When a ProgressCounter is instantiated, it saves the current value of `counter`. When
   // Watchdog::tryHandleSignal() is called with an active ProgressCounter on the thread, the
   // function compares this saved value with the (possibly updated) current value. If they differ,
@@ -94,7 +103,11 @@ public:
 
 private:
   uint64_t savedValue;
+#ifdef _WIN32
+  std::atomic_uint64_t& counter;
+#else
   uint64_t& counter;
+#endif
 
   friend class Watchdog;
 };

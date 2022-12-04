@@ -5,7 +5,7 @@
 #pragma once
 
 #include <kj/hash.h>
-#include "form-data.h"
+#include <workerd/api/form-data.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/string.h>
 

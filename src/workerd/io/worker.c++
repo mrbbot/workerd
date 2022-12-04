@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "worker.h"
-#include "promise-wrapper.h"
-#include "actor-cache.h"
+#include <workerd/io/worker.h>
+#include <workerd/io/promise-wrapper.h>
+#include <workerd/io/actor-cache.h>
 #include <workerd/util/thread-scopes.h>
 #include <workerd/api/global-scope.h>
 #include <workerd/api/system-streams.h>  // for api::StreamEncoding
@@ -25,8 +25,15 @@
 #include <v8-profiler.h>
 #include <map>
 #include <time.h>
-#include <sys/syscall.h>
 #include <numeric>
+
+#ifdef _WIN32
+#include <atomic>  // std::atomic_uint64_t
+#include <windows.h>
+#undef ERROR // Conflicts with log severity
+#else
+#include <sys/syscall.h>
+#endif
 
 namespace v8_inspector {
   kj::String KJ_STRINGIFY(const v8_inspector::StringView& view) {
@@ -417,6 +424,8 @@ void reportStartupError(
 uint64_t getCurrentThreadId() {
 #if __linux__
   return syscall(SYS_gettid);
+#elif _WIN32
+  return GetCurrentThreadId();
 #else
   // Assume MacOS or BSD
   uint64_t tid;
@@ -460,6 +469,10 @@ public:
     // Helper for attachInspector().
     inspectorTimerInfo = InspectorTimerInfo { timer, timerOffset, getCurrentThreadId() };
   }
+
+  // MSVC automatically generates a destructor without `noexcept`, I think because it doesn't
+  // realise we're catching exceptions in ~InspectorChannelImpl.
+  ~InspectorClient() noexcept = default;
 
 private:
   struct InspectorTimerInfo {
@@ -527,11 +540,19 @@ struct Worker::Isolate::Impl {
   kj::HashSet<kj::String> errorOnceDescriptions;
   // Set of error log lines that should not be logged again.
 
+#ifdef _WIN32
+  mutable std::atomic_uint lockAttemptGauge = 0;
+#else
   mutable uint lockAttemptGauge = 0;
+#endif
   // Instantaneous count of how many threads are trying to or have successfully obtained an
   // AsyncLock on this isolate, used to implement getCurrentLoad().
 
+#ifdef _WIN32
+  mutable std::atomic_uint64_t lockSuccessCount = 0;
+#else
   mutable uint64_t lockSuccessCount = 0;
+#endif
   // Atomically incremented upon every successful lock. The ThreadProgressCounter in Impl::Lock
   // registers a reference to `lockSuccessCounter` as the thread's progress counter during a lock
   // attempt. This allows watchdogs to see evidence of forward progress in other threads, even if
@@ -571,7 +592,11 @@ struct Worker::Isolate::Impl {
       }
 
       // Increment the success count to expose forward progress to all threads.
+      #if _WIN32
+      impl.lockSuccessCount.fetch_add(1, std::memory_order_relaxed);
+      #else
       __atomic_add_fetch(&impl.lockSuccessCount, 1, __ATOMIC_RELAXED);
+      #endif
       metrics.locked();
 
       // We record the current lock so our GC prologue/epilogue callbacks can report GC time via
@@ -1842,14 +1867,22 @@ Worker::AsyncWaiter::AsyncWaiter(kj::Own<const Isolate> isolateParam)
 
   threadCurrentWaiter = this;
 
+  #if _WIN32
+  isolate->impl->lockAttemptGauge.fetch_add(1, std::memory_order_relaxed);
+  #else
   __atomic_add_fetch(&isolate->impl->lockAttemptGauge, 1, __ATOMIC_RELAXED);
+  #endif
 }
 
 Worker::AsyncWaiter::~AsyncWaiter() noexcept {
   // This destructor is `noexcept` because an exception here probably leaves the process in a bad
   // state.
 
+  #if _WIN32
+  isolate->impl->lockAttemptGauge.fetch_sub(1, std::memory_order_relaxed);
+  #else
   __atomic_sub_fetch(&isolate->impl->lockAttemptGauge, 1, __ATOMIC_RELAXED);
+  #endif
 
   auto lock = isolate->asyncWaiters.lockExclusive();
 
@@ -2192,11 +2225,19 @@ public:
   }
 
   bool isNetworkEnabled() {
+    #if _WIN32
+    return networkEnabled.load(std::memory_order_relaxed);
+    #else
     return __atomic_load_n(&networkEnabled, __ATOMIC_RELAXED);
+    #endif
   }
 
   void setNetworkEnabled(bool enable) {
+    #if _WIN32
+    networkEnabled.store(enable, std::memory_order_relaxed);
+    #else
     __atomic_store_n(&networkEnabled, enable, __ATOMIC_RELAXED);
+    #endif
   }
 
   void sendNotification(kj::String message) {
@@ -2330,7 +2371,11 @@ private:
     kj::Promise<void> awaitNotification() {
       return kj::mv(KJ_ASSERT_NONNULL(paf).promise).then([this]() {
         paf = kj::newPromiseAndFulfiller<void>();
+        #if _WIN32
+        inFlight.store(false, std::memory_order_relaxed);
+        #else
         __atomic_store_n(&inFlight, false, __ATOMIC_RELAXED);
+        #endif
       });
     }
 
@@ -2356,7 +2401,11 @@ private:
     mutable kj::Maybe<kj::PromiseFulfillerPair<void>> paf = kj::newPromiseAndFulfiller<void>();
     // Accessed only in notifier's owning thread.
 
+#ifdef _WIN32
+    mutable std::atomic<bool> inFlight = false;
+#else
     mutable bool inFlight = false;
+#endif
     // Is a notification already in-flight?
   };
 
@@ -2367,7 +2416,11 @@ private:
   kj::MutexGuarded<kj::Vector<kj::String>> outgoingQueue;
   bool receivedClose = false;
 
+#ifdef _WIN32
+  mutable std::atomic<bool> networkEnabled = false;
+#else
   volatile bool networkEnabled = false;
+#endif
   // Not under `state` lock due to lock ordering complications.
 
   kj::Promise<void> sendToWebsocket(kj::ArrayPtr<kj::String> messages) {
@@ -3051,11 +3104,19 @@ void Worker::Actor::setIoContext(kj::Own<IoContext> context) {
 // =======================================================================================
 
 uint Worker::Isolate::getCurrentLoad() const {
+  #if _WIN32
+  return impl->lockAttemptGauge.load(std::memory_order_relaxed);
+  #else
   return __atomic_load_n(&impl->lockAttemptGauge, __ATOMIC_RELAXED);
+  #endif
 }
 
 uint Worker::Isolate::getLockSuccessCount() const {
+  #if _WIN32
+  return impl->lockSuccessCount.load(std::memory_order_relaxed);
+  #else
   return __atomic_load_n(&impl->lockSuccessCount, __ATOMIC_RELAXED);
+  #endif
 }
 
 kj::Own<const Worker::Script> Worker::Isolate::newScript(

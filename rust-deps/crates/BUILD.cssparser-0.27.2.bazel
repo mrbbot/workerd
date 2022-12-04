@@ -164,7 +164,7 @@ cargo_build_script(
         "//conditions:default": [
             "@crates_vendor__proc-macro2-1.0.47//:proc_macro2",
             "@crates_vendor__quote-1.0.21//:quote",
-            "@crates_vendor__syn-1.0.103//:syn",
+            "@crates_vendor__syn-1.0.104//:syn",
         ],
     }),
 )

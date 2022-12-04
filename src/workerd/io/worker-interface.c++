@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "worker-interface.h"
+#include <workerd/io/worker-interface.h>
 #include <kj/debug.h>
 #include <workerd/util/own-util.h>
 

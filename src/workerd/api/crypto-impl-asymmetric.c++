@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "crypto-impl.h"
+#include <workerd/api/crypto-impl.h>
 #include <openssl/rsa.h>
 #include <openssl/ec_key.h>
 #include <openssl/bn.h>
@@ -13,7 +13,7 @@
 #include <set>
 #include <kj/function.h>
 #include <type_traits>
-#include "util.h"
+#include <workerd/api/util.h>
 
 namespace workerd::api {
 namespace {
@@ -1763,19 +1763,20 @@ kj::OneOf<jsg::Ref<CryptoKey>, CryptoKeyPair> EdDsaKey::generateKey(
     curveName,
   };
 
-  uint8_t rawPublicKey[keylen];
-  uint8_t rawPrivateKey[keylen * 2];
-  keypair(rawPublicKey, rawPrivateKey);
+  auto rawPublicKey = kj::heapArray<uint8_t>(keylen);
+  auto rawPrivateKey = kj::heapArray<uint8_t>(keylen * 2);
+  keypair(rawPublicKey.begin(), rawPrivateKey.begin());
+
   // The private key technically also contains the public key. Why does the keypair function bother
   // writing out the public key to a separate buffer?
 
   auto evpPkey = OSSL_NEW(EVP_PKEY);
   auto privateEvpPKey = OSSLCALL_OWN(EVP_PKEY, EVP_PKEY_new_raw_private_key(nid, nullptr,
-      rawPrivateKey, keylen), InternalDOMOperationError, "Error constructing ", curveName,
+      rawPrivateKey.begin(), keylen), InternalDOMOperationError, "Error constructing ", curveName,
       " private key", internalDescribeOpensslErrors());
 
   auto publicEvpPKey = OSSLCALL_OWN(EVP_PKEY, EVP_PKEY_new_raw_public_key(nid, nullptr,
-      rawPublicKey, keylen), InternalDOMOperationError, "Internal error construct ", curveName,
+      rawPublicKey.begin(), keylen), InternalDOMOperationError, "Internal error construct ", curveName,
       "public key", internalDescribeOpensslErrors());
 
   auto privateKey = jsg::alloc<CryptoKey>(kj::heap<EdDsaKey>(kj::mv(privateEvpPKey),

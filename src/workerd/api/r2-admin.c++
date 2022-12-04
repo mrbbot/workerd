@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "r2-admin.h"
-#include "r2-rpc.h"
+#include <workerd/api/r2-admin.h>
+#include <workerd/api/r2-rpc.h>
 #include <workerd/api/util.h>
 #include <workerd/api/system-streams.h>
 #include <kj/compat/http.h>

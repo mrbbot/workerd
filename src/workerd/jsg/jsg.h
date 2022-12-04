@@ -13,8 +13,8 @@
 #include <kj/one-of.h>
 #include <type_traits>
 #include <v8.h>
-#include "macro-meta.h"
-#include "wrappable.h"
+#include <workerd/jsg/macro-meta.h>
+#include <workerd/jsg/wrappable.h>
 
 #define JSG_ASSERT(cond, jsErrorType, ...)                                              \
   KJ_ASSERT(cond, kj::str(JSG_EXCEPTION(jsErrorType) ": ", ##__VA_ARGS__))
@@ -121,7 +121,7 @@ public:
 
 private:
   void* trace[16];
-  size_t traceSize;
+  kj::ArrayPtr<void* const> tracePtr;
   mutable kj::String whatBuffer;
 };
 // When a C++ callback wishes to throw a JavaScript exception, it should first call
@@ -2051,9 +2051,9 @@ inline v8::Local<v8::Data> Data::getHandle(jsg::Lock& js) {
 }  // namespace workerd::jsg
 
 // These two includes are needed for the JSG type glue macros to work.
-#include "resource.h"
-#include "dom-exception.h"
-#include "struct.h"
-#include "promise.h"
-#include "function.h"
-#include "iterator.h"
+#include <workerd/jsg/resource.h>
+#include <workerd/jsg/dom-exception.h>
+#include <workerd/jsg/struct.h>
+#include <workerd/jsg/promise.h>
+#include <workerd/jsg/function.h>
+#include <workerd/jsg/iterator.h>

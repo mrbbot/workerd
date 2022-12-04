@@ -4,8 +4,8 @@
 
 #include <kj/test.h>
 
-#include "crypto-impl.h"
-#include "crypto.h"
+#include <workerd/api/crypto-impl.h>
+#include <workerd/api/crypto.h>
 #include <workerd/api/util.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/setup.h>

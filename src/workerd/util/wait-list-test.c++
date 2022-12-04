@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "wait-list.h"
+#include <workerd/util/wait-list.h>
 #include <kj/test.h>
 #include <kj/thread.h>
 

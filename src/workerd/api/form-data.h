@@ -7,7 +7,7 @@
 #include <kj/vector.h>
 #include <kj/compat/url.h>
 #include <workerd/jsg/jsg.h>
-#include "blob.h"
+#include <workerd/api/blob.h>
 
 namespace workerd::api {
 

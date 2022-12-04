@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "r2-rpc.h"
+#include <workerd/api/r2-rpc.h>
 
 #include <workerd/jsg/jsg.h>
 #include <workerd/api/http.h>

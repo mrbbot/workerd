@@ -2,10 +2,10 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "kv.h"
-#include "util.h"
-#include "system-streams.h"
-#include "workerd/io/limit-enforcer.h"
+#include <workerd/api/kv.h>
+#include <workerd/api/util.h>
+#include <workerd/api/system-streams.h>
+#include <workerd/io/limit-enforcer.h>
 #include <workerd/util/http-util.h>
 #include <workerd/io/io-context.h>
 #include <kj/encoding.h>

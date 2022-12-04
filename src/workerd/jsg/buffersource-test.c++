@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "jsg-test.h"
-#include "buffersource.h"
+#include <workerd/jsg/jsg-test.h>
+#include <workerd/jsg/buffersource.h>
 
 // ========================================================================================
 namespace workerd::jsg::test {

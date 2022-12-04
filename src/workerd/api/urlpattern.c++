@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "urlpattern.h"
-#include "url-standard.h"
+#include <workerd/api/urlpattern.h>
+#include <workerd/api/url-standard.h>
 #include <kj/vector.h>
 #include <unicode/uchar.h>
 #include <algorithm>

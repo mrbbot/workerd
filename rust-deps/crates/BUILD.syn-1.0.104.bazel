@@ -19,7 +19,7 @@ load(
 load("@rules_rust//crate_universe/private:selects.bzl", "select_with_or")
 load(
     "@rules_rust//rust:defs.bzl",
-    "rust_proc_macro",
+    "rust_library",
 )
 
 package(default_visibility = ["//visibility:public"])
@@ -28,8 +28,8 @@ package(default_visibility = ["//visibility:public"])
 #     "TODO",  # MIT OR Apache-2.0
 # ])
 
-rust_proc_macro(
-    name = "serde_derive",
+rust_library(
+    name = "syn",
     srcs = glob(
         include = [
             "**/*.rs",
@@ -54,14 +54,23 @@ rust_proc_macro(
         ],
     }),
     crate_features = [
+        "clone-impls",
         "default",
+        "derive",
+        "extra-traits",
+        "fold",
+        "full",
+        "parsing",
+        "printing",
+        "proc-macro",
+        "quote",
     ],
     crate_root = "src/lib.rs",
     data = select_with_or({
         "//conditions:default": [
         ],
     }),
-    edition = "2015",
+    edition = "2018",
     proc_macro_deps = [
     ] + select_with_or({
         "//conditions:default": [
@@ -86,21 +95,21 @@ rust_proc_macro(
         "noclippy",
         "norustfmt",
     ],
-    version = "1.0.147",
+    version = "1.0.104",
     deps = [
     ] + select_with_or({
         "//conditions:default": [
             "@crates_vendor__proc-macro2-1.0.47//:proc_macro2",
             "@crates_vendor__quote-1.0.21//:quote",
-            "@crates_vendor__serde_derive-1.0.147//:build_script_build",
-            "@crates_vendor__syn-1.0.103//:syn",
+            "@crates_vendor__syn-1.0.104//:build_script_build",
+            "@crates_vendor__unicode-ident-1.0.5//:unicode_ident",
         ],
     }),
 )
 
 cargo_build_script(
     # See comment associated with alias. Do not change this name
-    name = "serde_derive_build_script",
+    name = "syn_build_script",
     srcs = glob(
         include = [
             "**/*.rs",
@@ -119,7 +128,16 @@ cargo_build_script(
         ],
     }),
     crate_features = [
+        "clone-impls",
         "default",
+        "derive",
+        "extra-traits",
+        "fold",
+        "full",
+        "parsing",
+        "printing",
+        "proc-macro",
+        "quote",
     ],
     crate_name = "build_script_build",
     crate_root = "build.rs",
@@ -127,7 +145,7 @@ cargo_build_script(
         "//conditions:default": [
         ],
     }),
-    edition = "2015",
+    edition = "2018",
     proc_macro_deps = [
     ] + select_with_or({
         "//conditions:default": [
@@ -156,7 +174,7 @@ cargo_build_script(
         "//conditions:default": [
         ],
     }),
-    version = "1.0.147",
+    version = "1.0.104",
     visibility = ["//visibility:private"],
     deps = [
     ] + select_with_or({
@@ -172,7 +190,7 @@ alias(
     # of `build_script_build` without losing out on having certain Cargo
     # environment variables set.
     name = "build_script_build",
-    actual = "serde_derive_build_script",
+    actual = "syn_build_script",
     tags = [
         "manual",
     ],

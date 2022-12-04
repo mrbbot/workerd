@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "url-standard.h"
-#include "blob.h"
-#include "util.h"
+#include <workerd/api/url-standard.h>
+#include <workerd/api/blob.h>
+#include <workerd/api/util.h>
 #include <kj/array.h>
 #include <cmath>
 #include <map>
@@ -13,9 +13,15 @@
 #include <unicode/uchar.h>
 #include <unicode/uidna.h>
 #include <unicode/utf8.h>
-#include <arpa/inet.h>
 #include <algorithm>
 #include <numeric>
+
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#undef RELATIVE
+#else
+#include <arpa/inet.h>
+#endif
 
 namespace workerd::api::url {
 

@@ -9,6 +9,10 @@
 #include <kj/list.h>
 #include <kj/map.h>
 
+#ifdef _WIN32
+#include <atomic>
+#endif
+
 namespace workerd {
 
 using kj::uint;
@@ -50,7 +54,13 @@ public:
     state->reject(kj::mv(e));
   }
 
-  bool isDone() const { return __atomic_load_n(&state->done, __ATOMIC_ACQUIRE); }
+  bool isDone() const {
+    #ifdef _WIN32
+    return state->done.load(std::memory_order_acquire);
+    #else
+    return __atomic_load_n(&state->done, __ATOMIC_ACQUIRE);
+    #endif
+  }
   // Has `fulfill()` or `reject()` been called? Of course, the caller should consider if
   // `fulfill()` might be called in another thread concurrently.
 
@@ -83,7 +93,11 @@ private:
     kj::ListLink<Waiter> link;
     // Protected by list mutex.
 
-    bool unlinked = false;
+    #ifdef _WIN32
+    mutable std::atomic<bool> unlinked;
+    #else
+    bool unlinked;
+    #endif
     // Optimization: This is atomically set true when the waiter is removed from the list so that
     // we don't have to redundantly take the lock.
 
@@ -96,7 +110,11 @@ private:
 
     const bool useThreadLocalOptimization = false;
 
+    #ifdef _WIN32
+    mutable std::atomic<bool> done;
+    #else
     mutable bool done = false;
+    #endif
     // Atomically set true at the start of fulfill() or reject(). This can be checked before taking
     // the lock, but if false, it must be checked again after taking the lock, to avoid a race.
 

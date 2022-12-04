@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "readable.h"
-#include "writable.h"
+#include <workerd/api/streams/readable.h>
+#include <workerd/api/streams/writable.h>
 
 namespace workerd::api {
 

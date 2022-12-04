@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "common.h"
+#include <workerd/api/streams/common.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/buffersource.h>
 #include <algorithm>

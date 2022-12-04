@@ -8,10 +8,10 @@
 // Handling of various basic value types: numbers, booleans, strings, optionals, maybes, variants,
 // arrays, buffers, dicts.
 
-#include "util.h"
-#include "wrappable.h"
-#include "jsg.h"
-#include "web-idl.h"
+#include <workerd/jsg/util.h>
+#include <workerd/jsg/wrappable.h>
+#include <workerd/jsg/jsg.h>
+#include <workerd/jsg/web-idl.h>
 #include <kj/time.h>
 #include <kj/tuple.h>
 #include <kj/debug.h>
@@ -1184,7 +1184,7 @@ public:
         return handle.getHandle(context->GetIsolate());
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
   template <typename T>

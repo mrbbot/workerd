@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "common.h"
-#include "internal.h"
-#include "queue.h"
+#include <workerd/api/streams/common.h>
+#include <workerd/api/streams/internal.h>
+#include <workerd/api/streams/queue.h>
 #include <workerd/jsg/function.h>
 #include <workerd/jsg/buffersource.h>
 

@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "readable.h"
-#include "writable.h"
+#include <workerd/api/streams/readable.h>
+#include <workerd/api/streams/writable.h>
 
 namespace workerd::api {
 
@@ -262,7 +262,7 @@ jsg::Promise<ReadResult> ReadableStreamBYOBReader::read(
 
 jsg::Promise<ReadResult> ReadableStreamBYOBReader::readAtLeast(
     jsg::Lock& js,
-    int minBytes,
+    size_t minBytes,
     v8::Local<v8::ArrayBufferView> byobBuffer) {
   auto options = ReadableStreamController::ByobOptions {
     .bufferView = js.v8Ref(byobBuffer),

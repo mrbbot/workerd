@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "jsg.h"
+#include <workerd/jsg/jsg.h>
 
 namespace workerd::jsg {
 
@@ -40,7 +40,7 @@ static constexpr size_t getBufferSourceElementSize() {
 #define V(Type, size, _) else if constexpr (kj::isSameType<v8::Type, T>()) { return size; }
   JSG_ARRAY_BUFFER_VIEW_TYPES(V)
 #undef V
-  asm("no_matching_buffer_view_type\n");
+  KJ_FAIL_ASSERT("no_matching_buffer_view_type");
 }
 
 template <BufferSourceType T>
@@ -55,7 +55,7 @@ static constexpr size_t checkIsIntegerType() {
 #define V(Type, _, res) else if constexpr (kj::isSameType<v8::Type, T>()) { return res; }
   JSG_ARRAY_BUFFER_VIEW_TYPES(V)
 #undef V
-  asm("no_matching_buffer_view_type\n");
+  KJ_FAIL_ASSERT("no_matching_buffer_view_type");
 }
 
 class BufferSource;

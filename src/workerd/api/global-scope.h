@@ -6,20 +6,20 @@
 
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/dom-exception.h>
-#include "basics.h"
-#include "http.h"
-#include "encoding.h"
-#include "url.h"
-#include "url-standard.h"
-#include "urlpattern.h"
-#include "form-data.h"
-#include "crypto.h"
-#include "cache.h"
-#include "html-rewriter.h"
-#include "trace.h"
-#include "scheduled.h"
-#include "blob.h"
-#include "sockets.h"
+#include <workerd/api/basics.h>
+#include <workerd/api/http.h>
+#include <workerd/api/encoding.h>
+#include <workerd/api/url.h>
+#include <workerd/api/url-standard.h>
+#include <workerd/api/urlpattern.h>
+#include <workerd/api/form-data.h>
+#include <workerd/api/crypto.h>
+#include <workerd/api/cache.h>
+#include <workerd/api/html-rewriter.h>
+#include <workerd/api/trace.h>
+#include <workerd/api/scheduled.h>
+#include <workerd/api/blob.h>
+#include <workerd/api/sockets.h>
 
 namespace workerd::api {
 

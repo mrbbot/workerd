@@ -11,18 +11,24 @@
 #include <capnp/dynamic.h>
 #include <workerd/server/workerd.capnp.h>
 #include <workerd/server/workerd-meta.capnp.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include "server.h"
-#include <unistd.h>
-#include <sys/syscall.h>
+#include <workerd/server/server.h>
 #include <workerd/jsg/setup.h>
-#include <kj/async-unix.h>
-#include <sys/ioctl.h>
 #include <openssl/rand.h>
 #include <workerd/io/compatibility-date.h>
+
+#ifdef _WIN32
+#include <iostream>
+#include <kj/async-win32.h>
+#include <kj/std/iostream.h>
+#else
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include <kj/async-unix.h>
+#endif
 
 #if __linux__
 #include <sys/inotify.h>
@@ -270,6 +276,22 @@ private:
   }
 };
 
+#elif _WIN32
+
+class FileWatcher {
+public:
+  FileWatcher(kj::Win32EventPort& port) {}
+
+  bool isSupported() { return false; }
+
+  void watch(kj::PathPtr path, kj::Maybe<const kj::ReadableFile&> file) {}
+
+  void watch(const kj::ReadableFile& file) {}
+
+  kj::Promise<void> onChange() { return kj::NEVER_DONE; }
+private:
+};
+
 #else
 
 class FileWatcher {
@@ -512,9 +534,11 @@ public:
         configOwner = kj::heap(kj::mv(mapping));
       }
     } else {
+      #ifndef _WIN32
       context.warning(
           "Unable to find and open the program executable, so unable to determine if there is a "
           "compiled-in config file. Proceeding on the assumption that there is not.");
+      #endif
     }
 
     // We don't want to force people to specify top-level file IDs in `workerd` config files, as
@@ -619,8 +643,11 @@ public:
 
   struct Override { kj::String name; kj::StringPtr value; };
   Override parseOverride(kj::StringPtr str) {
-    auto equalPos = KJ_UNWRAP_OR(str.findFirst('='), CLI_ERROR("Expected <name>=<value>"));
-    return { kj::str(str.slice(0, equalPos)), str.slice(equalPos + 1) };
+    KJ_IF_MAYBE(equalPos, str.findFirst('=')) {
+      return { kj::str(str.slice(0, *equalPos)), str.slice(*equalPos + 1) };
+    } else {
+      CLI_ERROR("Expected <name>=<value>");
+    }
   }
 
   void overrideSocketAddr(kj::StringPtr param) {
@@ -628,6 +655,11 @@ public:
     server.overrideSocket(kj::mv(name), kj::str(value));
   }
 
+#ifdef _WIN32
+  void overrideSocketFd(kj::StringPtr param) {
+    CLI_ERROR("Socket file descriptors are unsupported by your OS.");
+  }
+#else
   void validateSocketFd(uint fd, kj::StringPtr label) {
     int acceptcon = 0;
     socklen_t optlen = sizeof(acceptcon);
@@ -661,6 +693,7 @@ public:
     server.overrideSocket(kj::mv(name), io.lowLevelProvider->wrapListenSocketFd(
         fd, kj::LowLevelAsyncIoProvider::TAKE_OWNERSHIP));
   }
+#endif
 
   void overrideDirectory(kj::StringPtr param) {
     auto [ name, value ] = parseOverride(param);
@@ -677,7 +710,11 @@ public:
   }
 
   void watch() {
+    #if _WIN32
+    auto& w = watcher.emplace(io.win32EventPort);
+    #else
     auto& w = watcher.emplace(io.unixEventPort);
+    #endif
     if (!w.isSupported()) {
       CLI_ERROR("File watching is not yet implemented on your OS. Sorry! Pull requests welcome!");
     }
@@ -686,6 +723,14 @@ public:
       w.watch(fs->getCurrentPath().eval(e->path), nullptr);
     } else {
       CLI_ERROR("Can't use --watch when we're unable to find our own executable.");
+    }
+  }
+
+  kj::Own<const kj::ReadableFile> openConfigFile(kj::PathPtr path) {
+    KJ_IF_MAYBE(file, fs->getRoot().tryOpenFile(path)) {
+      return kj::mv(*file);
+    } else {
+      CLI_ERROR("No such file.");
     }
   }
 
@@ -698,13 +743,18 @@ public:
       }
 
       // Can't use mmap() because it's probably not a file.
+      #if _WIN32
+      auto stream = kj::std::StdInputStream(std::cin);
+      auto reader = kj::heap<capnp::InputStreamMessageReader>(stream, CONFIG_READER_OPTIONS);
+      #elif
       auto reader = kj::heap<capnp::StreamFdMessageReader>(STDIN_FILENO, CONFIG_READER_OPTIONS);
+      #endif
       config = reader->getRoot<config::Config>();
       configOwner = kj::mv(reader);
     } else {
       // Read file from disk.
       auto path = fs->getCurrentPath().evalNative(pathStr);
-      auto file = KJ_UNWRAP_OR(fs->getRoot().tryOpenFile(path), CLI_ERROR("No such file."));
+      auto file = openConfigFile(path);
 
       if (binaryConfig) {
         // Interpret as binary config.
@@ -743,31 +793,43 @@ public:
     auto parent = parsedSchema;
 
     for (;;) {
-      auto dotPos = KJ_UNWRAP_OR(name.findFirst('.'), break);
-      auto parentName = name.slice(0, dotPos);
-      parent = KJ_UNWRAP_OR(parent.findNested(kj::str(parentName)),
+      KJ_IF_MAYBE(dotPos, name.findFirst('.')) {
+        auto parentName = name.slice(0, *dotPos);
+        KJ_IF_MAYBE(newParent, parent.findNested(kj::str(parentName))) {
+          parent = *newParent;
+          name = name.slice(*dotPos + 1);
+        } else {
           CLI_ERROR("No such constant is defined in the config file (the parent scope '",
-                    parentName, "' does not exist)."));
-      name = name.slice(dotPos + 1);
+                    parentName, "' does not exist).");
+        }
+      } else {
+        break;
+      }
     }
 
-    auto node = KJ_UNWRAP_OR(parsedSchema.findNested(name),
-        CLI_ERROR("No such constant is defined in the config file."));
+    KJ_IF_MAYBE(node, parsedSchema.findNested(name)) {
+      if (!node->getProto().isConst()) {
+        CLI_ERROR("Symbol is not a constant.");
+      }
 
-    if (!node.getProto().isConst()) {
-      CLI_ERROR("Symbol is not a constant.");
+      auto constSchema = node->asConst();
+      auto type = constSchema.getType();
+      if (!type.isStruct() ||
+          type.asStruct().getProto().getId() != capnp::typeId<config::Config>()) {
+        CLI_ERROR("Constant is not of type 'Config'.");
+      }
+
+      config = constSchema.as<config::Config>();
+    } else {
+      CLI_ERROR("No such constant is defined in the config file.");
     }
-
-    auto constSchema = node.asConst();
-    auto type = constSchema.getType();
-    if (!type.isStruct() ||
-        type.asStruct().getProto().getId() != capnp::typeId<config::Config>()) {
-      CLI_ERROR("Constant is not of type 'Config'.");
-    }
-
-    config = constSchema.as<config::Config>();
   }
 
+#ifdef _WIN32
+  void compile() {
+    CLI_ERROR("Building a self-contained binary is not yet implemented on your OS. Sorry! Pull requests welcome!");
+  }
+#else
   void compile() {
     if (hadErrors) {
       // Errors were already reported with context.error(), so contex.exit() will exit with a
@@ -850,6 +912,7 @@ public:
       }
     }
   }
+#endif
 
   [[noreturn]] void serve() noexcept {
     if (hadErrors) {
@@ -881,6 +944,11 @@ public:
     }
   }
 
+#ifdef _WIN32
+  void reloadFromConfigChange() {
+    KJ_UNREACHABLE("Watching is not yet implemented on Windows");
+  }
+#else
   [[noreturn]] void reloadFromConfigChange() {
     // Write extra spaces to fully overwrite the line that we wrote earlier with a CR but no LF:
     //     "Noticed configuration change, reloading shortly...\r"
@@ -908,6 +976,7 @@ public:
       }
     }
   }
+#endif
 
 private:
   kj::ProcessContext& context;
@@ -952,6 +1021,7 @@ private:
     kj::Own<const kj::ReadableFile> file;
   };
 
+#ifndef _WIN32
   static kj::Maybe<ExeInfo> tryOpenExe(kj::StringPtr path) {
     // Use open() and not fs.getRoot().tryOpenFile() because we probably want to use true kernel
     // path resolution here, not KJ's logical path resolution.
@@ -989,6 +1059,7 @@ private:
     // TODO(beta): Fall back to searching $PATH.
     return nullptr;
   }
+#endif
 
   config::Config::Reader getConfig() {
     KJ_IF_MAYBE(c, config) {
@@ -1010,9 +1081,14 @@ private:
             "specify which one to use. The options are: ", kj::strArray(names, ", ")));
       }
     }
+    KJ_UNREACHABLE;
   }
 
+#if _WIN32
+  kj::Maybe<ExeInfo> exeInfo = nullptr;
+#else
   kj::Maybe<ExeInfo> exeInfo = getExecFile(context, *fs);
+#endif
 
   bool hadErrors = false;
 
@@ -1030,6 +1106,11 @@ private:
     hadErrors = true;
   }
 
+#ifdef _WIN32
+  kj::Promise<void> waitForChanges(FileWatcher& watcher) {
+    KJ_UNREACHABLE("Watching is not yet implemented on Windows");
+  }
+#else
   kj::Promise<void> waitForChanges(FileWatcher& watcher) {
     // Wait for the FileWatcher to report a change, and then wait a moment for changes to settle
     // down, in case there's a bunch of changes all at once.
@@ -1058,6 +1139,7 @@ private:
 
     co_return;
   }
+#endif
 };
 
 }  // namespace workerd::server

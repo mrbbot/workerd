@@ -1,3 +1,4 @@
+# load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 def rust_cxx_include(name, deps = [], visibility = [], include_prefix = None):
@@ -25,6 +26,23 @@ def rust_cxx_bridge(name, src, deps = [], visibility = [], strip_include_prefix 
         cmd = "$(location @cxxbridge_vendor//:cxxbridge-cmd__cxxbridge) $(location %s) -o $(location %s.h) -o $(location %s.cc)" % (src, src, src),
         tools = ["@cxxbridge_vendor//:cxxbridge-cmd__cxxbridge"],
     )
+
+    # run_binary(
+    #     name = "%s/generated" % name,
+    #     srcs = [src],
+    #     outs = [
+    #         src + ".h",
+    #         src + ".cc",
+    #     ],
+    #     args = [
+    #         "$(location %s)" % src,
+    #         "-o",
+    #         "$(location %s.h)" % src,
+    #         "-o",
+    #         "$(location %s.cc)" % src,
+    #     ],
+    #     tool = "@cxxbridge_vendor//:cxxbridge-cmd__cxxbridge",
+    # )
 
     cc_library(
         name = name,

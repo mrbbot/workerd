@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "jsg.h"
+#include <workerd/jsg/jsg.h>
 #include <compare>
 
 namespace workerd::jsg {

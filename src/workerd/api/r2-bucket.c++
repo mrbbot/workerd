@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "r2-multipart.h"
-#include "r2-bucket.h"
-#include "r2-rpc.h"
+#include <workerd/api/r2-multipart.h>
+#include <workerd/api/r2-bucket.h>
+#include <workerd/api/r2-rpc.h>
 #include <array>
 #include <math.h>
 #include <workerd/api/util.h>

@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "actor-cache.h"
+#include <workerd/io/actor-cache.h>
 
 #include <algorithm>
 
@@ -209,7 +209,13 @@ void ActorCache::evictOrOomIfNeeded(Lock& lock) {
 
     // Add trace info sufficient to tell us which operation caused the failure.
     exception.addTraceHere();
-    exception.addTrace(__builtin_return_address(0));
+    #if __GNUC__
+      exception.addTrace(__builtin_return_address(0));
+    #elif _MSC_VER
+      exception.addTrace(_ReturnAddress());
+    #else
+      #error "Please add compiler support."
+    #endif
 
     if (maybeTerminalException == nullptr) {
       maybeTerminalException.emplace(kj::cp(exception));
@@ -2206,7 +2212,13 @@ void ActorCache::shutdown(kj::Maybe<const kj::Exception&> maybeException) {
 
       // Add trace info sufficient to tell us which operation caused the failure.
       exception.addTraceHere();
-      exception.addTrace(__builtin_return_address(0));
+      #if __GNUC__
+        exception.addTrace(__builtin_return_address(0));
+      #elif _MSC_VER
+        exception.addTrace(_ReturnAddress());
+      #else
+        #error "Please add compiler support."
+      #endif
       return exception;
     }();
 

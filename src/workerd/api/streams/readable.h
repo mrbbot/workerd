@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "internal.h"
-#include "standard.h"
+#include <workerd/api/streams/internal.h>
+#include <workerd/api/streams/standard.h>
 #include <kj/function.h>
 
 namespace workerd::api {
@@ -122,7 +122,7 @@ public:
       CompatibilityFlags::Reader featureFlags);
 
   jsg::Promise<ReadResult> readAtLeast(jsg::Lock& js,
-                                        int minBytes,
+                                        size_t minBytes,
                                         v8::Local<v8::ArrayBufferView> byobBuffer);
   // Non-standard extension so that reads can specify a minimum number of bytes to read. It's a
   // struct so that we could eventually add things like timeouts if we need to. Since there's no

@@ -7,8 +7,8 @@
 //
 // Handles wrapping a C++ function so that it can be called from JavaScript, and vice versa.
 
-#include "wrappable.h"
-#include "resource.h"  // for ArgumentIndexes
+#include <workerd/jsg/wrappable.h>
+#include <workerd/jsg/resource.h>  // for ArgumentIndexes
 #include <kj/function.h>
 
 namespace workerd::jsg {
@@ -159,7 +159,7 @@ public:
                              js.handle.getHandle(jsl.v8Isolate), kj::fwd<Args>(args)...);
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
   template <typename MakeNativeWrapperFunc>
@@ -179,7 +179,7 @@ public:
         return js.handle.getHandle(isolate);
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
   kj::Maybe<v8::Local<v8::Function>> tryGetHandle(v8::Isolate* isolate) {
@@ -193,7 +193,7 @@ public:
         return js.handle.getHandle(isolate);
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
   inline void visitForGc(GcVisitor& visitor) {
@@ -216,7 +216,7 @@ public:
         return Function<Ret(Args...)>(js.wrapper, js.receiver.addRef(isolate), js.handle.addRef(isolate));
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
   inline Function<Ret(Args...)> addRef(Lock& js) {
@@ -228,7 +228,7 @@ public:
         return Function<Ret(Args...)>(jsi.wrapper, jsi.receiver.addRef(js), jsi.handle.addRef(js));
       }
     }
-    __builtin_unreachable();
+    KJ_ASSUME(0);
   }
 
 private:
@@ -379,9 +379,20 @@ public:
 
       v8::HandleScope scope(isolate);
       auto context = isolate->GetCurrentContext();
+
+      #ifdef _MSC_VER
+      v8::Local<v8::Value>* argv = nullptr;
+      if constexpr (sizeof...(Args) > 0) {
+        v8::Local<v8::Value> argvArr[sizeof...(Args)] {
+          typeWrapper.wrap(context, nullptr, kj::fwd<Args>(args))...
+        };
+        argv = argvArr;
+      }
+      #else
       v8::Local<v8::Value> argv[sizeof...(Args)] {
         typeWrapper.wrap(context, nullptr, kj::fwd<Args>(args))...
       };
+      #endif
 
       auto result = check(func->Call(context, receiver, sizeof...(Args), argv));
       if constexpr(!isVoid<Ret>()) {

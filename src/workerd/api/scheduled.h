@@ -6,7 +6,7 @@
 
 #include <workerd/jsg/jsg.h>
 #include <kj/async.h>
-#include "basics.h"
+#include <workerd/api/basics.h>
 
 namespace workerd::api {
 

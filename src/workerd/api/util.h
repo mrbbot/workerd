@@ -22,7 +22,11 @@ struct CiLess {
   // Case-insensitive comparator for use with std::set/map.
 
   bool operator()(kj::StringPtr lhs, kj::StringPtr rhs) const {
+    #ifdef _MSC_VER
+    return _stricmp(lhs.begin(), rhs.begin()) < 0;
+    #else
     return strcasecmp(lhs.begin(), rhs.begin()) < 0;
+    #endif
   }
 };
 

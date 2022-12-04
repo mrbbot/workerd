@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "blob.h"
-#include "system-streams.h"
+#include <workerd/api/blob.h>
+#include <workerd/api/system-streams.h>
 
 namespace workerd::api {
 

@@ -9,8 +9,8 @@
 #include <workerd/jsg/jsg.h>
 #include <kj/async.h>
 #include <openssl/err.h>
-#include "streams.h"
-#include "util.h"
+#include <workerd/api/streams.h>
+#include <workerd/api/util.h>
 
 namespace workerd::api {
 namespace {
@@ -43,8 +43,8 @@ public:
 
   CryptoKeyUsageSet() : set(0) {}
 
-  CryptoKeyUsageSet operator&(CryptoKeyUsageSet other) const { return set & other.set; }
-  CryptoKeyUsageSet operator|(CryptoKeyUsageSet other) const { return set | other.set; }
+  constexpr CryptoKeyUsageSet operator&(CryptoKeyUsageSet other) const { return set & other.set; }
+  constexpr CryptoKeyUsageSet operator|(CryptoKeyUsageSet other) const { return set | other.set; }
 
   CryptoKeyUsageSet& operator&=(CryptoKeyUsageSet other) {
     set &= other.set;

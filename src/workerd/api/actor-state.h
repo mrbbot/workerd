@@ -13,7 +13,7 @@
 #include <kj/async.h>
 #include <v8.h>
 #include <workerd/io/promise-wrapper.h>
-#include "util.h"
+#include <workerd/api/util.h>
 #include <workerd/io/actor-cache.h>
 
 namespace workerd::api {

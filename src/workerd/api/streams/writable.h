@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "internal.h"
-#include "standard.h"
+#include <workerd/api/streams/internal.h>
+#include <workerd/api/streams/standard.h>
 
 namespace workerd::api {
 

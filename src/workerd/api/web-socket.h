@@ -7,7 +7,7 @@
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/string.h>
 #include <kj/compat/http.h>
-#include "basics.h"
+#include <workerd/api/basics.h>
 #include <workerd/io/io-context.h>
 
 namespace workerd::api {

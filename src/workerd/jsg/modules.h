@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "jsg.h"
+#include <workerd/jsg/jsg.h>
 #include <kj/filesystem.h>
 #include <kj/map.h>
 

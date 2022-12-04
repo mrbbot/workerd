@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "jsg.h"
+#include <workerd/jsg/jsg.h>
 
 #define JSG_DOM_EXCEPTION_FOR_EACH_ERROR_NAME(f) \
     f(INDEX_SIZE_ERR, 1, "IndexSizeError") \

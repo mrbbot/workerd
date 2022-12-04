@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "system-streams.h"
-#include "util.h"
+#include <workerd/api/system-streams.h>
+#include <workerd/api/util.h>
 #include <kj/one-of.h>
 #include <kj/compat/gzip.h>
 

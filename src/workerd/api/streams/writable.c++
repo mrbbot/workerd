@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "writable.h"
-#include "readable.h"
+#include <workerd/api/streams/writable.h>
+#include <workerd/api/streams/readable.h>
 
 namespace workerd::api {
 

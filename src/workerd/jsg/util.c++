@@ -2,11 +2,14 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "jsg.h"  // can't include util.h directly due to weird cyclic dependency...
-#include "setup.h"
-#include <cxxabi.h>
+#include <workerd/jsg/jsg.h>  // can't include util.h directly due to weird cyclic dependency...
+#include <workerd/jsg/setup.h>
 #include <kj/debug.h>
 #include <stdlib.h>
+
+#ifndef _WIN32
+#include <cxxabi.h>
+#endif
 
 #include <workerd/util/sentry.h>
 
@@ -22,6 +25,15 @@ bool getCommonJsExportDefault(v8::Isolate* isolate) {
   return jsgIsolate.getCommonJsExportDefault();
 }
 
+#ifdef _WIN32
+kj::String fullyQualifiedTypeName(const std::type_info& type) {
+  // type.name() returns a human-readable name on Windows:
+  // https://learn.microsoft.com/en-us/cpp/cpp/type-info-class?view=msvc-170
+  // TODO(now): check this is good enough
+  kj::String result = kj::str(type.name());
+  return kj::mv(result);
+}
+#else // #ifdef _WIN32
 kj::String fullyQualifiedTypeName(const std::type_info& type) {
   int status;
   char* buf = abi::__cxa_demangle(type.name(), nullptr, nullptr, &status);
@@ -30,6 +42,7 @@ kj::String fullyQualifiedTypeName(const std::type_info& type) {
 
   return kj::mv(result);
 }
+#endif
 
 kj::String typeName(const std::type_info& type) {
   auto result = fullyQualifiedTypeName(type);

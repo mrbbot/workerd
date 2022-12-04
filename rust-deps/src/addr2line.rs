@@ -7,8 +7,10 @@ use ffi::SourceFrame;
 use std::fs::File;
 use typed_arena::Arena;
 use std::borrow::Cow;
-use std::os::unix::io::AsRawFd;
 use std::mem::ManuallyDrop;
+
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::io::AsRawFd;
 
 #[cxx::bridge(namespace = "workerd::addr2line")]
 mod ffi {
@@ -43,6 +45,7 @@ fn load_file_section<'input, 'arena, Endian: gimli::Endianity>(
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn mmap_entire_file_read_only(file: File) -> std::io::Result<(*const u8, usize)> {
     let len = file.metadata()?.len();
     let fd = file.as_raw_fd();
@@ -73,6 +76,17 @@ fn mmap_entire_file_read_only(file: File) -> std::io::Result<(*const u8, usize)>
     }
 }
 
+#[cfg(target_os = "windows")]
+fn mmap_entire_file_read_only(_file: File) -> std::io::Result<(*const u8, usize)> {
+    // TODO(someday): implement this, maybe depend on this crate?
+    //  https://github.com/RazrFalcon/memmap2-rs/blob/9d5272abf2a0307fbd5f76666f07dd82219c3471/src/windows.rs
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "memory map not yet implemented on Windows",
+    ))
+}
+
+#[allow(dead_code)]
 pub struct Module {
     arena_data: *mut Arena<Cow<'static, [u8]>>,
     mmap_ptr: *const u8,
@@ -82,6 +96,7 @@ pub struct Module {
     context: ManuallyDrop<Context<EndianSlice<'static, RunTimeEndian>>>,
 }
 
+#[cfg(not(target_os = "windows"))]
 impl Drop for Module {
     fn drop(&mut self) {
         unsafe {

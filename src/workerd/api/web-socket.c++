@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "web-socket.h"
+#include <workerd/api/web-socket.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/io/io-context.h>
 #include <workerd/io/worker.h>

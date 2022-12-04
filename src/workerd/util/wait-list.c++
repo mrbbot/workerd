@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "wait-list.h"
+#include <workerd/util/wait-list.h>
 #include <kj/debug.h>
 
 namespace workerd {
@@ -26,6 +26,17 @@ CrossThreadWaitList::Waiter::Waiter(const State& state,
     kj::Own<kj::CrossThreadPromiseFulfiller<void>> fulfillerArg)
     : state(kj::atomicAddRef(state)), fulfiller(kj::mv(fulfillerArg)) {
   auto lock = state.waiters.lockExclusive();
+#ifdef _WIN32
+  if (state.done.load(std::memory_order_acquire)) {
+    KJ_IF_MAYBE(e, state.exception) {
+      fulfiller->reject(kj::cp(*e));
+    } else {
+      fulfiller->fulfill();
+    }
+  } else {
+    lock->add(*this);
+  }
+#else
   if (__atomic_load_n(&state.done, __ATOMIC_ACQUIRE)) {
     KJ_IF_MAYBE(e, state.exception) {
       fulfiller->reject(kj::cp(*e));
@@ -35,8 +46,21 @@ CrossThreadWaitList::Waiter::Waiter(const State& state,
   } else {
     lock->add(*this);
   }
+#endif
+
 }
 CrossThreadWaitList::Waiter::~Waiter() noexcept(false) {
+#ifdef _WIN32
+  if (unlinked.load(std::memory_order_acquire)) {
+    // No need to take a lock, already unlinked.
+    KJ_ASSERT(!link.isLinked());
+  } else {
+    auto lock = state->waiters.lockExclusive();
+    if (link.isLinked()) {
+      lock->remove(*this);
+    }
+  }
+#else
   if (__atomic_load_n(&unlinked, __ATOMIC_ACQUIRE)) {
     // No need to take a lock, already unlinked.
     KJ_ASSERT(!link.isLinked());
@@ -46,6 +70,7 @@ CrossThreadWaitList::Waiter::~Waiter() noexcept(false) {
       lock->remove(*this);
     }
   }
+#endif
 
   if (state->useThreadLocalOptimization) {
     auto& entry = KJ_ASSERT_NONNULL(threadLocalWaiters.findEntry(state.get()));
@@ -55,13 +80,23 @@ CrossThreadWaitList::Waiter::~Waiter() noexcept(false) {
 }
 
 kj::Promise<void> CrossThreadWaitList::addWaiter() const {
-  if (__atomic_load_n(&state->done, __ATOMIC_ACQUIRE)) {
+#ifdef _WIN32
+  if (state->done.load(std::memory_order_acquire)) {
     KJ_IF_MAYBE(e, state->exception) {
       return kj::cp(*e);
     } else {
       return kj::READY_NOW;
     }
   }
+#else
+  if (__atomic_load_n(&state.done, __ATOMIC_ACQUIRE)) {
+    KJ_IF_MAYBE(e, state->exception) {
+      return kj::cp(*e);
+    } else {
+      return kj::READY_NOW;
+    }
+  }
+#endif
 
   if (state->useThreadLocalOptimization) {
     kj::Own<Waiter> ownWaiter;
@@ -105,7 +140,11 @@ kj::Own<kj::CrossThreadPromiseFulfiller<void>> CrossThreadWaitList::makeSeparate
       // even if the waiter list is empty, because the waiter list could become non-empty later.
       // In theory if we could determine that there will never be a waiter, then isWaiting()
       // could return false.
+#ifdef _WIN32
+      return !state->done.load(std::memory_order_acquire);
+#else
       return !__atomic_load_n(&state->done, __ATOMIC_ACQUIRE);
+#endif
     }
 
   private:
@@ -116,6 +155,55 @@ kj::Own<kj::CrossThreadPromiseFulfiller<void>> CrossThreadWaitList::makeSeparate
   createdFulfiller = true;
   return kj::heap<FulfillerImpl>(kj::atomicAddRef(*state));
 }
+
+#ifdef _WIN32
+
+void CrossThreadWaitList::State::fulfill() const {
+  if (done.load(std::memory_order_acquire)) return;
+  auto lock = waiters.lockExclusive();
+  if (done) return;
+  done.store(true, std::memory_order_release);
+
+  for (auto& waiter: *lock) {
+    lock->remove(waiter);
+    waiter.fulfiller->fulfill();
+    waiter.unlinked.store(true, std::memory_order_release);
+  }
+}
+
+void CrossThreadWaitList::State::reject(kj::Exception&& e) const {
+  if (done.load(std::memory_order_acquire)) return;
+  auto lock = waiters.lockExclusive();
+  if (done) return;
+  auto& exceptionRef = exception.emplace(kj::mv(e));
+  done.store(true, std::memory_order_release);
+
+  for (auto& waiter: *lock) {
+    lock->remove(waiter);
+    waiter.fulfiller->reject(kj::cp(exceptionRef));
+    waiter.unlinked.store(true, std::memory_order_release);
+  }
+}
+
+void CrossThreadWaitList::State::lostFulfiller() const {
+  if (done.load(std::memory_order_acquire)) return;
+  auto lock = waiters.lockExclusive();
+  if (done) return;
+  auto& exceptionRef = exception.emplace(kj::getDestructionReason(
+        reinterpret_cast<void*>(&END_WAIT_LIST_CANCELER_STACK_START_CANCELEE_STACK),
+        kj::Exception::Type::FAILED, __FILE__, __LINE__, "wait list was never fulfilled"_kj));
+  done.store(true, std::memory_order_release);
+
+  if (!lock->empty()) {
+    for (auto& waiter: *lock) {
+      lock->remove(waiter);
+      waiter.fulfiller->reject(kj::cp(exceptionRef));
+      waiter.unlinked.store(true, std::memory_order_release);
+    }
+  }
+}
+
+#else // #ifdef _WIN32
 
 void CrossThreadWaitList::State::fulfill() const {
   if (__atomic_load_n(&done, __ATOMIC_ACQUIRE)) return;
@@ -161,5 +249,7 @@ void CrossThreadWaitList::State::lostFulfiller() const {
     }
   }
 }
+
+#endif // #else, #ifdef _WIN32
 
 }  // namespace workerd

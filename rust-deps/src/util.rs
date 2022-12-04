@@ -46,6 +46,7 @@ fn set_panic_hook() {
 struct DisplayBacktrace(Backtrace);
 
 impl fmt::Debug for DisplayBacktrace {
+    #[cfg(not(target_os = "windows"))]
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         use std::ffi::CStr;
         use std::ptr::{null, null_mut};
@@ -73,5 +74,12 @@ impl fmt::Debug for DisplayBacktrace {
             }
         }
         Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        // We don't sandbox on Windows, so calling getcwd isn't a problem, but calling libc::dladdr is.
+        // So just defer to the original implementation.
+        self.0.fmt(fmt)
     }
 }

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "io-context.h"
-#include "worker.h"
+#include <workerd/io/io-context.h>
+#include <workerd/io/worker.h>
 #include <workerd/jsg/jsg.h>
 
 namespace workerd {
@@ -39,9 +39,12 @@ public:
         v8::Local<v8::Context> context, v8::Local<v8::Value> handle, kj::Promise<T>*,
         kj::Maybe<v8::Local<v8::Object>> parentObject) {
     auto& wrapper = static_cast<Self&>(*this);
-    auto jsPromise = KJ_UNWRAP_OR_RETURN(wrapper.tryUnwrap(
-        context, handle, (jsg::Promise<T>*)nullptr, parentObject), nullptr);
-    return IoContext::current().awaitJs(kj::mv(jsPromise));
+    KJ_IF_MAYBE(jsPromise, wrapper.tryUnwrap(
+        context, handle, (jsg::Promise<T>*)nullptr, parentObject)) {
+      return IoContext::current().awaitJs(kj::mv(*jsPromise));
+    } else {
+      return nullptr;
+    }
   }
 
   template <typename T>

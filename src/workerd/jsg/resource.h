@@ -10,9 +10,9 @@
 // can call back to the class's methods. This differs from, say, a struct type, which will be deeply
 // converted into a JS object when passed into JS.
 
-#include "util.h"
-#include "wrappable.h"
-#include "jsg.h"
+#include <workerd/jsg/util.h>
+#include <workerd/jsg/wrappable.h>
+#include <workerd/jsg/jsg.h>
 #include <kj/tuple.h>
 #include <kj/debug.h>
 #include <type_traits>
@@ -437,7 +437,7 @@ struct GetterCallback;
           auto obj = info.This(); \
           auto& wrapper = TypeWrapper::from(isolate); \
           /* V8 no longer supports AccessorSignature, so we must manually verify `this`'s type. */\
-          if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
+          if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
             throwTypeError(isolate, "Illegal invocation"); \
           } \
           auto& self = extractInternalPointer<T, isContext>(context, obj); \
@@ -463,7 +463,7 @@ struct GetterCallback;
           auto obj = info.This(); \
           auto& wrapper = TypeWrapper::from(isolate); \
           /* V8 no longer supports AccessorSignature, so we must manually verify `this`'s type. */\
-          if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
+          if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
             throwTypeError(isolate, "Illegal invocation"); \
           } \
           auto& self = extractInternalPointer<T, isContext>(context, obj); \
@@ -490,7 +490,7 @@ struct GetterCallback;
           auto obj = info.This(); \
           auto& wrapper = TypeWrapper::from(isolate); \
           /* V8 no longer supports AccessorSignature, so we must manually verify `this`'s type. */\
-          if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
+          if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { \
             throwTypeError(isolate, "Illegal invocation"); \
           } \
           auto& self = extractInternalPointer<T, isContext>(context, obj); \
@@ -511,6 +511,33 @@ struct GetterCallback;
     };
 
 JSG_DEFINE_GETTER_CALLBACK_STRUCTS()
+// template <typename TypeWrapper, const char* methodName, typename T, typename Ret, typename... Args, Ret (T::*method)(Args...) const, bool isContext>
+// struct GetterCallback<TypeWrapper, methodName, Ret (T::*)(Args...) const, method, isContext> {
+//   static constexpr bool enumerable = true;
+//   static void callback(v8::Local<v8::Name>, const v8::PropertyCallbackInfo<v8::Value>& info)
+//   {
+//     liftKj(info, [&]() {
+//       auto isolate = info.GetIsolate();
+//       auto context = isolate->GetCurrentContext();
+//       auto obj = info.This();
+//       auto& wrapper = TypeWrapper::from(isolate);
+//       if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
+//         throwTypeError(isolate, "Illegal invocation");
+//       }
+//       auto& self = extractInternalPointer<T, isContext>(context, obj);
+//       return wrapper.wrap(context, obj, (self.*method)( wrapper.unwrap(context, (kj::Decay<Args>*)nullptr)...));
+//     });
+//   }
+// };
+// template <typename TypeWrapper, const char* methodName, typename T, typename Ret, typename... Args, Ret (T::*method)(Lock&, Args...) const, bool isContext> struct GetterCallback<TypeWrapper, methodName, Ret (T::*)(Lock&, Args...) const, method, isContext> {
+//   static constexpr bool enumerable = true; static void callback(v8::Local<v8::Name>, const v8::PropertyCallbackInfo<v8::Value>& info) { liftKj(info, [&]() { auto isolate = info.GetIsolate(); auto context = isolate->GetCurrentContext(); auto obj = info.This(); auto& wrapper = TypeWrapper::from(isolate); if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { throwTypeError(isolate, "Illegal invocation"); } auto& self = extractInternalPointer<T, isContext>(context, obj); return wrapper.wrap(context, obj, (self.*method)(Lock::from(isolate), wrapper.unwrap(context, (kj::Decay<Args>*)nullptr)...)); }); }
+// };
+// template <typename TypeWrapper, const char* methodName, typename T, typename Ret, typename... Args, Ret (T::*method)(const v8::PropertyCallbackInfo<v8::Value>&, Args...) const, bool isContext> struct GetterCallback<TypeWrapper, methodName, Ret (T::*)(const v8::PropertyCallbackInfo<v8::Value>&, Args...) const, method, isContext> {
+//   static constexpr bool enumerable = true; static void callback(v8::Local<v8::Name>, const v8::PropertyCallbackInfo<v8::Value>& info) { liftKj(info, [&]() { auto isolate = info.GetIsolate(); auto context = isolate->GetCurrentContext(); auto obj = info.This(); auto& wrapper = TypeWrapper::from(isolate); if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) { throwTypeError(isolate, "Illegal invocation"); } auto& self = extractInternalPointer<T, isContext>(context, obj); return wrapper.wrap(context, obj, (self.*method)(info, wrapper.unwrap(context, (kj::Decay<Args>*)nullptr)...)); }); }
+// };
+// template <typename TypeWrapper, const char* propertyName, typename T, Unimplemented (T::*method)() const, bool isContext> struct GetterCallback<TypeWrapper, propertyName, Unimplemented (T::*)() const, method, isContext> {
+//   static constexpr bool enumerable = false; static void callback(v8::Local<v8::Name>, const v8::PropertyCallbackInfo<v8::Value>& info) { scheduleUnimplementedPropertyError(info, typeid(T), propertyName); }
+// };
 JSG_DEFINE_GETTER_CALLBACK_STRUCTS(const)
 
 #undef JSG_DEFINE_GETTER_CALLBACK_STRUCTS
@@ -531,7 +558,7 @@ struct SetterCallback<TypeWrapper, methodName, void (T::*)(Arg), method, isConte
       auto obj = info.This();
       auto& wrapper = TypeWrapper::from(isolate);
       // V8 no longer supports AccessorSignature, so we must manually verify `this`'s type.
-      if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
+      if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
         throwTypeError(isolate, "Illegal invocation");
       }
       auto& self = extractInternalPointer<T, isContext>(context, obj);
@@ -555,7 +582,7 @@ struct SetterCallback<TypeWrapper, methodName,
       auto obj = info.This();
       auto& wrapper = TypeWrapper::from(isolate);
       // V8 no longer supports AccessorSignature, so we must manually verify `this`'s type.
-      if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
+      if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
         throwTypeError(isolate, "Illegal invocation");
       }
       auto& self = extractInternalPointer<T, isContext>(context, obj);
@@ -580,7 +607,7 @@ struct SetterCallback<TypeWrapper, methodName,
       auto obj = info.This();
       auto& wrapper = TypeWrapper::from(isolate);
       // V8 no longer supports AccessorSignature, so we must manually verify `this`'s type.
-      if (!isContext && !wrapper.template getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
+      if (!isContext && !wrapper.getTemplate(isolate, (T*)nullptr)->HasInstance(obj)) {
         throwTypeError(isolate, "Illegal invocation");
       }
       auto& self = extractInternalPointer<T, isContext>(context, obj);

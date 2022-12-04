@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "io-context.h"
-#include "trace.h"
-#include "worker-interface.h"
+#include <workerd/io/io-context.h>
+#include <workerd/io/trace.h>
+#include <workerd/io/worker-interface.h>
 #include <kj/compat/http.h>
 
 namespace workerd {

@@ -8,12 +8,12 @@
 #include <workerd/util/abortable.h>
 #include <kj/compat/http.h>
 #include <map>
-#include "basics.h"
-#include "streams.h"
-#include "form-data.h"
-#include "web-socket.h"
-#include "url.h"
-#include "blob.h"
+#include <workerd/api/basics.h>
+#include <workerd/api/streams.h>
+#include <workerd/api/form-data.h>
+#include <workerd/api/web-socket.h>
+#include <workerd/api/url.h>
+#include <workerd/api/blob.h>
 #include <workerd/io/compatibility-date.capnp.h>
 
 namespace workerd::api {

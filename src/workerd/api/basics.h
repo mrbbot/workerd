@@ -12,7 +12,7 @@
 #include <kj/function.h>
 #include <kj/map.h>
 #include <workerd/io/io-context.h>
-#include "actor-state.h"
+#include <workerd/api/actor-state.h>
 
 namespace workerd::api {
 

@@ -5,7 +5,7 @@
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/jsg-test.h>
 #include <kj/test.h>
-#include "url-standard.h"
+#include <workerd/api/url-standard.h>
 #include <workerd/jsg/setup.h>
 
 namespace workerd::api::url {

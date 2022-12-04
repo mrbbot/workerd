@@ -6,9 +6,9 @@
 // Implementations of ReadableStreamSource / WritableStreamSink which wrap system streams (sockets),
 // handle encoding/decoding, and optimize pumping between them when possible.
 
-#include "streams.h"
-#include "http.h"
-#include "sockets.h"
+#include <workerd/api/streams.h>
+#include <workerd/api/http.h>
+#include <workerd/api/sockets.h>
 #include <workerd/io/io-context.h>
 
 namespace workerd::api {

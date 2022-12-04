@@ -2,10 +2,10 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "html-rewriter.h"
-#include "system-streams.h"
-#include "util.h"
-#include "c-api/include/lol_html.h"
+#include <workerd/api/html-rewriter.h>
+#include <workerd/api/system-streams.h>
+#include <workerd/api/util.h>
+#include <c-api/include/lol_html.h>
 #include <workerd/io/promise-wrapper.h>
 #include <workerd/io/io-context.h>
 
@@ -40,12 +40,21 @@ protected:
 template <typename T, void (*lolhtmlFree)(T*)>
 const LolHtmlDisposer<T, lolhtmlFree> LolHtmlDisposer<T, lolhtmlFree>::INSTANCE;
 
+#if _MSC_VER && !defined(__clang__)
+#define LOL_HTML_OWN(name, ...) \
+  ([&] { \
+    using T = lol_html_##name##_t; \
+    constexpr auto* lolhtmlFree = lol_html_##name##_free; \
+    return kj::Own<T>(&check(__VA_ARGS__), LolHtmlDisposer<T, lolhtmlFree>::INSTANCE); \
+  }())
+#else
 #define LOL_HTML_OWN(name, ...) \
   ({ \
     using T = lol_html_##name##_t; \
     constexpr auto* lolhtmlFree = lol_html_##name##_free; \
     kj::Own<T>(&check(__VA_ARGS__), LolHtmlDisposer<T, lolhtmlFree>::INSTANCE); \
   })
+#endif
 
 class LolString {
   // RAII helper for lol_html_str_t.

@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "r2-bucket.h"
-#include "r2-multipart.h"
+#include <workerd/api/r2-bucket.h>
+#include <workerd/api/r2-multipart.h>
 
 
 namespace workerd::api::public_beta {

@@ -2,8 +2,8 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "actor-state.h"
-#include "actor.h"
+#include <workerd/api/actor-state.h>
+#include <workerd/api/actor.h>
 #include <workerd/api/global-scope.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/ser.h>

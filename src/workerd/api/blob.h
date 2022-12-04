@@ -5,8 +5,8 @@
 #pragma once
 
 #include <workerd/jsg/jsg.h>
-#include "streams.h"
-#include "util.h"
+#include <workerd/api/streams.h>
+#include <workerd/api/util.h>
 
 namespace workerd::api {
 

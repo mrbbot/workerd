@@ -2,9 +2,9 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-#include "actor.h"
-#include "util.h"
-#include "system-streams.h"
+#include <workerd/api/actor.h>
+#include <workerd/api/util.h>
+#include <workerd/api/system-streams.h>
 #include <kj/encoding.h>
 #include <kj/compat/http.h>
 #include <capnp/compat/byte-stream.h>

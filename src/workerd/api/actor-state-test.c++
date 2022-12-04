@@ -7,7 +7,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "streams.h"
+#include <workerd/api/streams.h>
 #include <workerd/api/util.h>
 #include <workerd/jsg/jsg.h>
 #include <workerd/jsg/ser.h>
