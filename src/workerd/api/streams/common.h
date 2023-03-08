@@ -14,6 +14,11 @@
 #include <deque>
 #include <queue>
 
+#ifdef _MSC_VER
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 namespace workerd::api {
 
 class ReadableStream;

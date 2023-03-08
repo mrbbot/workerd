@@ -5,8 +5,13 @@
 #include "sqlite.h"
 #include <kj/test.h>
 #include <errno.h>
-#include <unistd.h>
 #include <fcntl.h>
+
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace workerd {
 namespace {
@@ -141,10 +146,20 @@ private:
     const char* tmpDir = getenv("TEST_TMPDIR");
     kj::String pathStr = kj::str(
         tmpDir != nullptr ? tmpDir : "/var/tmp", "/workerd-sqlite-test.XXXXXX");
+#ifdef _WIN32
+    if (_mktemp(pathStr.begin()) == nullptr) {
+      KJ_FAIL_SYSCALL("_mktemp", errno, pathStr);
+    }
+    auto path = disk->getCurrentPath().evalNative(pathStr);
+    disk->getRoot().openSubdir(path, kj::WriteMode::CREATE | kj::WriteMode::MODIFY |
+                                     kj::WriteMode::CREATE_PARENT);
+    return path;
+#else
     if (mkdtemp(pathStr.begin()) == nullptr) {
       KJ_FAIL_SYSCALL("mkdtemp", errno, pathStr);
     }
     return disk->getCurrentPath().evalNative(pathStr);
+#endif
   }
 };
 
@@ -164,10 +179,16 @@ KJ_TEST("SQLite backed by real disk") {
 
     {
       auto files = dir->listNames();
+#ifdef _WIN32
+      KJ_ASSERT(files.size() == 2);
+      KJ_EXPECT(files[0] == "foo");
+      KJ_EXPECT(files[1] == "foo-wal");
+#else
       KJ_ASSERT(files.size() == 3);
       KJ_EXPECT(files[0] == "foo");
       KJ_EXPECT(files[1] == "foo-shm");
       KJ_EXPECT(files[2] == "foo-wal");
+#endif
     }
   }
 

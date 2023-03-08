@@ -7,6 +7,13 @@
 #include <capnp/schema.h>
 #include <capnp/dynamic.h>
 
+#ifdef _WIN32
+#include <stdio.h>
+#include <kj/win32-api-version.h>
+#include <windows.h>
+#include <kj/windows-sanity.h>
+#endif
+
 namespace workerd {
 
 using kj::uint;
@@ -32,6 +39,26 @@ struct CompatDate {
     return !(*this < other);
   }
 
+#ifdef _WIN32
+  static kj::Maybe<CompatDate> parse(kj::StringPtr text) {
+    if (!text.startsWith("2")) return nullptr;
+    if (text.size() != 10 || text[4] != '-' || text[7] != '-') {
+      return nullptr;
+    }
+    for (char c: text) {
+      if ((c < '0' || '9' < c) && c != '-') return nullptr;
+    }
+    uint year, month, day;
+    // TODO(soon): use `kj::parse` here instead or some Windows time parsing API
+    auto result = sscanf(text.cStr(), "%d-%d-%d", &year, &month, &day);
+    if (result == EOF) return nullptr;
+    // Basic validation, this has the same limitations as the strptime() solution below, and will
+    // happily accept dates like 2022-02-30
+    if (month < 1 || month > 12) return nullptr;
+    if (day < 1 || day > 31) return nullptr;
+    return CompatDate { year, month, day };
+  }
+#else
   static kj::Maybe<CompatDate> parse(kj::StringPtr text) {
     // Basic sanity check that years are 4-digit in the [2000,2999] range. If it is the year 3000
     // and this code broke, all I can say is: haha, take that robots, humans screwed you over yet
@@ -78,6 +105,7 @@ struct CompatDate {
       return nullptr;
     }
   }
+#endif
 
   static CompatDate parse(kj::StringPtr text, Worker::ValidationErrorReporter& errorReporter) {
     static constexpr CompatDate DEFAULT_DATE { 2021, 5, 1 };
@@ -91,8 +119,12 @@ struct CompatDate {
 
   static CompatDate today() {
     time_t now = time(nullptr);
+#ifdef _MSC_VER
+    auto t = *gmtime(&now);
+#else
     struct tm t;
     KJ_ASSERT(gmtime_r(&now, &t) == &t);
+#endif
     return { (uint)(t.tm_year + 1900), (uint)(t.tm_mon + 1), (uint)t.tm_mday };
   }
 

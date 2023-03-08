@@ -69,8 +69,12 @@ static kj::String httpTime(kj::Date date) {
   // Returns a time string in the format HTTP likes to use.
 
   time_t time = (date - kj::UNIX_EPOCH) / kj::SECONDS;
+#if _WIN32
+  auto tm = *gmtime(&time);
+#else
   struct tm tm;
   KJ_ASSERT(gmtime_r(&time, &tm) == &tm);
+#endif
   char buf[256];
   size_t n = strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
   KJ_ASSERT(n > 0);
@@ -477,6 +481,7 @@ public:
 
   kj::Promise<kj::AuthenticatedStream> connectAuthenticated() override {
     KJ_IF_MAYBE(a, addr) {
+      KJ_DBG((*a)->toString());
       return a->get()->connectAuthenticated();
     } else {
       return promise.addBranch().then([this]() {

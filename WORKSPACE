@@ -33,12 +33,19 @@ rules_foreign_cc_dependencies()
 # ========================================================================================
 # Simple dependencies
 
-http_archive(
+# http_archive(
+#     name = "capnp-cpp",
+#     sha256 = "72dfd487fcdec4223bd6475a4f481b07f7a8884e09185e0c68b67730f1711f0b",
+#     strip_prefix = "capnproto-capnproto-9b1acb2/c++",
+#     type = "tgz",
+#     urls = ["https://github.com/capnproto/capnproto/tarball/9b1acb2f642fef318576c10a215bf6590c77538b"],
+# )
+git_repository(
     name = "capnp-cpp",
-    sha256 = "72dfd487fcdec4223bd6475a4f481b07f7a8884e09185e0c68b67730f1711f0b",
-    strip_prefix = "capnproto-capnproto-9b1acb2/c++",
-    type = "tgz",
-    urls = ["https://github.com/capnproto/capnproto/tarball/9b1acb2f642fef318576c10a215bf6590c77538b"],
+    remote = "https://github.com/mrbbot/capnproto.git",
+    commit = "0647da04b9b60f5d53a00e0c221113db73c42902",
+    strip_prefix = "c++",
+    shallow_since = "1678795198 +0000",
 )
 
 http_archive(
@@ -152,6 +159,16 @@ http_file(
     ],
 )
 
+http_file(
+    name = "cargo_bazel_win_x64",
+    executable = True,
+    sha256 = "a57c496e8ff9d1b2dcd4f6a3a43c41ed0c54e9f3d48183ed411097c3590176d3",
+    urls = [
+        "https://github.com/bazelbuild/rules_rust/releases/download/0.10.0/cargo-bazel-x86_64-pc-windows-msvc.exe",
+    ],
+    downloaded_file_path = "downloaded.exe" # .exe extension required for Windows to recognise as executable
+)
+
 http_archive(
     name = "rules_rust",
     sha256 = "0cc7e6b39e492710b819e00d48f2210ae626b717a3ab96e048c43ab57e61d204",
@@ -225,12 +242,12 @@ npm_translate_lock(
     name = "npm",
     pnpm_lock = "//:pnpm-lock.yaml",
     # Patches required for `capnp-ts` to type-check
-    patches = {
-        "capnp-ts@0.7.0": ["//:patches/capnp-ts@0.7.0.patch"],
-    },
-    patch_args = {
-        "capnp-ts@0.7.0": ["-p1"],
-    },
+    # patches = {
+    #     "capnp-ts@0.7.0": ["//:patches/capnp-ts@0.7.0.patch"],
+    # },
+    # patch_args = {
+    #     "capnp-ts@0.7.0": ["-p1"],
+    # },
 )
 
 load("@npm//:repositories.bzl", "npm_repositories")
@@ -263,6 +280,7 @@ git_repository(
         "//:patches/v8/0004-Add-ArrayBuffer-MaybeNew.patch",
         "//:patches/v8/0005-Revert-bazel-Add-hide-symbols-from-release-fast-buil.patch",
         "//:patches/v8/0006-bazel-Allow-compiling-on-macOS-catalina-and-ventura.patch",
+        "//:patches/v8/0007-Allow-Windows-builds-under-Bazel.patch",
     ],
 )
 
@@ -272,7 +290,8 @@ new_git_repository(
     commit = "20f8ac695af59b6c830def7d4e95bfeb13dd7be5",
     shallow_since = "1660168635 +0000",
     build_file = "@v8//:bazel/BUILD.icu",
-    patch_cmds = [ "find source -name BUILD.bazel | xargs rm" ]
+    patch_cmds = [ "find source -name BUILD.bazel | xargs rm" ],
+    patch_cmds_win = [ "Get-ChildItem -Path source -File -Include BUILD.bazel -Recurse | Remove-Item" ],
 )
 
 new_git_repository(

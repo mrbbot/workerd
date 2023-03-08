@@ -1008,7 +1008,7 @@ kj::Maybe<kj::Own<WritableStreamSink>> WritableStreamInternalController::removeS
 
 kj::Maybe<int> WritableStreamInternalController::getDesiredSize() {
   KJ_SWITCH_ONEOF(state) {
-    KJ_CASE_ONEOF(closed, StreamStates::Closed) { return uint(0); }
+    KJ_CASE_ONEOF(closed, StreamStates::Closed) { return 0; }
     KJ_CASE_ONEOF(errored, StreamStates::Errored) { return nullptr; }
     KJ_CASE_ONEOF(writable, Writable) { return 1; }
   }
