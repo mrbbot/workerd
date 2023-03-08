@@ -8,9 +8,12 @@
 #endif
 
 #include "setup.h"
-#include <cxxabi.h>
 #include "libplatform/libplatform.h"
+
+#ifndef _WIN32
+#include <cxxabi.h>
 #include <ucontext.h>
+#endif
 
 #ifdef WORKERD_ICU_DATA_EMBED
 #include <icudata-embed.capnp.h>
@@ -534,6 +537,15 @@ void IsolateBase::jitCodeEvent(const v8::JitCodeEvent* event) noexcept {
   }
 }
 
+#ifdef _WIN32
+kj::Maybe<kj::StringPtr> getJsStackTrace(void* ucontext, kj::ArrayPtr<char> scratch) {
+  // This function is only called by the internal build which just targets Linux.
+  // Windows doesn't provide ucontext, so we'd need to rewrite this function's signature
+  // if we were to support it. `v8/src/libsampler/sampler.cc` provides a suitable
+  // implementation we could use.
+  KJ_FAIL_ASSERT("getJsStackTrace() is not implemented on Windows");
+}
+#else
 kj::Maybe<kj::StringPtr> getJsStackTrace(void* ucontext, kj::ArrayPtr<char> scratch) {
   if (!v8Initialized) {
     return nullptr;
@@ -639,5 +651,6 @@ kj::Maybe<kj::StringPtr> getJsStackTrace(void* ucontext, kj::ArrayPtr<char> scra
   *pos = '\0';
   return kj::StringPtr(scratch.begin(), pos - scratch.begin());
 }
+#endif
 
 }  // namespace workerd::jsg

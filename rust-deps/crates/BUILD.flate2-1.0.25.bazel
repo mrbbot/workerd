@@ -25,7 +25,7 @@ package(default_visibility = ["//visibility:public"])
 # ])
 
 rust_library(
-    name = "once_cell",
+    name = "flate2",
     srcs = glob(
         include = [
             "**/*.rs",
@@ -50,15 +50,16 @@ rust_library(
         ],
     }),
     crate_features = [
-        "alloc",
-        "race",
+        "default",
+        "miniz_oxide",
+        "rust_backend",
     ],
     crate_root = "src/lib.rs",
     data = select_with_or({
         "//conditions:default": [
         ],
     }),
-    edition = "2021",
+    edition = "2018",
     proc_macro_deps = [
     ] + select_with_or({
         "//conditions:default": [
@@ -83,10 +84,23 @@ rust_library(
         "noclippy",
         "norustfmt",
     ],
-    version = "1.15.0",
+    version = "1.0.25",
     deps = [
     ] + select_with_or({
+        # cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))
+        (
+            "@rules_rust//rust/platform:wasm32-unknown-unknown",
+        ): [
+            # Target Deps
+            "@crates_vendor__miniz_oxide-0.6.2//:miniz_oxide",
+
+            # Common Deps
+            "@crates_vendor__crc32fast-1.3.2//:crc32fast",
+            "@crates_vendor__miniz_oxide-0.6.2//:miniz_oxide",
+        ],
         "//conditions:default": [
+            "@crates_vendor__crc32fast-1.3.2//:crc32fast",
+            "@crates_vendor__miniz_oxide-0.6.2//:miniz_oxide",
         ],
     }),
 )

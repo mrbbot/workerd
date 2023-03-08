@@ -86,7 +86,7 @@ rust_library(
     ] + select_with_or({
         "//conditions:default": [
             "@cxxbridge_vendor__termcolor-1.1.3//:termcolor",
-            "@cxxbridge_vendor__unicode-width-0.1.9//:unicode_width",
+            "@cxxbridge_vendor__unicode-width-0.1.10//:unicode_width",
         ],
     }),
 )

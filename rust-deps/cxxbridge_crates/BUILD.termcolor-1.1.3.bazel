@@ -85,10 +85,14 @@ rust_library(
     deps = [
     ] + select_with_or({
         # cfg(windows)
-        #
-        # No supported platform triples for cfg: 'cfg(windows)'
-        # Skipped dependencies: [{"id":"winapi-util 0.1.5","target":"winapi_util"}]
-        #
+        (
+            "@rules_rust//rust/platform:x86_64-pc-windows-msvc",
+        ): [
+            # Target Deps
+            "@cxxbridge_vendor__winapi-util-0.1.5//:winapi_util",
+
+            # Common Deps
+        ],
         "//conditions:default": [
         ],
     }),

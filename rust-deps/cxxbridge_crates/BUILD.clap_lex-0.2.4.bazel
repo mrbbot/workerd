@@ -85,7 +85,7 @@ rust_library(
     deps = [
     ] + select_with_or({
         "//conditions:default": [
-            "@cxxbridge_vendor__os_str_bytes-6.3.0//:os_str_bytes",
+            "@cxxbridge_vendor__os_str_bytes-6.4.1//:os_str_bytes",
         ],
     }),
 )

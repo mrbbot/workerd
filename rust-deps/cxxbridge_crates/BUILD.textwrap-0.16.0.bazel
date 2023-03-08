@@ -21,11 +21,11 @@ load(
 package(default_visibility = ["//visibility:public"])
 
 # licenses([
-#     "TODO",  # MIT OR Apache-2.0
+#     "TODO",  # MIT
 # ])
 
 rust_library(
-    name = "os_str_bytes",
+    name = "textwrap",
     srcs = glob(
         include = [
             "**/*.rs",
@@ -50,7 +50,6 @@ rust_library(
         ],
     }),
     crate_features = [
-        "raw_os_str",
     ],
     crate_root = "src/lib.rs",
     data = select_with_or({
@@ -82,7 +81,7 @@ rust_library(
         "noclippy",
         "norustfmt",
     ],
-    version = "6.3.0",
+    version = "0.16.0",
     deps = [
     ] + select_with_or({
         "//conditions:default": [

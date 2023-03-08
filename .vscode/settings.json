@@ -1,8 +1,9 @@
 {
     "files.exclude": {
-        "bazel-*": true
+        // "bazel-*": true
     },
     "files.insertFinalNewline": true,
     "files.trimTrailingWhitespace": true,
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "editor.formatOnSave": false
 }

@@ -68,8 +68,12 @@ static kj::String httpTime(kj::Date date) {
   // Returns a time string in the format HTTP likes to use.
 
   time_t time = (date - kj::UNIX_EPOCH) / kj::SECONDS;
+#if _WIN32
+  auto tm = *gmtime(&time);
+#else
   struct tm tm;
   KJ_ASSERT(gmtime_r(&time, &tm) == &tm);
+#endif
   char buf[256];
   size_t n = strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tm);
   KJ_ASSERT(n > 0);
@@ -454,11 +458,13 @@ class PromisedNetworkAddress final: public kj::NetworkAddress {
 public:
   PromisedNetworkAddress(kj::Promise<kj::Own<kj::NetworkAddress>> promise)
       : promise(promise.then([this](kj::Own<kj::NetworkAddress> result) {
+          KJ_DBG(result->toString());
           addr = kj::mv(result);
         }).fork()) {}
 
   kj::Promise<kj::Own<kj::AsyncIoStream>> connect() override {
     KJ_IF_MAYBE(a, addr) {
+      KJ_DBG((*a)->toString());
       return a->get()->connect();
     } else {
       return promise.addBranch().then([this]() {
@@ -469,6 +475,7 @@ public:
 
   kj::Promise<kj::AuthenticatedStream> connectAuthenticated() override {
     KJ_IF_MAYBE(a, addr) {
+      KJ_DBG((*a)->toString());
       return a->get()->connectAuthenticated();
     } else {
       return promise.addBranch().then([this]() {
@@ -607,6 +614,8 @@ kj::Own<Server::Service> Server::makeExternalService(
         "on the command line with `--external-addr`."));
     return makeInvalidConfigService();
   }
+
+  KJ_DBG(addrStr);
 
   switch (conf.which()) {
     case config::ExternalServer::HTTP: {
