@@ -4,7 +4,12 @@
 
 #include "sqlite.h"
 #include <kj/debug.h>
+
+#if _WIN32
+#else
 #include <unistd.h>
+#endif
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sqlite3.h>
@@ -310,6 +315,7 @@ bool SqliteDatabase::Query::isNull(uint column) {
 // we want to leverage all that code. If we can just make it interpret paths differently, then we
 // can reuse the rest of the implementation.
 
+#ifndef _WIN32
 namespace {
 
 static thread_local int currentVfsRoot = AT_FDCWD;
@@ -532,6 +538,7 @@ sqlite3_vfs SqliteDatabase::Vfs::makeWrappedNativeVfs() {
 #undef WRAP
   };
 }
+#endif // #ifndef _WIN32
 
 // -----------------------------------------------------------------------------
 // Code to implement a true SQLite VFS based on `kj::Directory`.
@@ -876,12 +883,16 @@ sqlite3_vfs SqliteDatabase::Vfs::makeKjVfs() {
 SqliteDatabase::Vfs::Vfs(const kj::Directory& directory)
     : directory(directory), name(kj::str("kj-", &directory)),
       native(*sqlite3_vfs_find(nullptr)) {
+#ifdef _WIN32
+  vfs = kj::heap(makeKjVfs());
+#else
   KJ_IF_MAYBE(fd, directory.getFd()) {
     rootFd = *fd;
     vfs = kj::heap(makeWrappedNativeVfs());
   } else {
     vfs = kj::heap(makeKjVfs());
   }
+#endif
   sqlite3_vfs_register(vfs, false);
 }
 

@@ -27,21 +27,5 @@ filegroup(
 )
 
 # Workspace Member Dependencies
-alias(
-    name = "cxxbridge-cmd",
-    actual = "@cxxbridge_vendor__cxxbridge-cmd-1.0.75//:cxxbridge_cmd",
-    tags = ["manual"],
-)
 
 # Binaries
-alias(
-    name = "clap__stdio-fixture",
-    actual = "@cxxbridge_vendor__clap-3.2.20//:stdio-fixture__bin",
-    tags = ["manual"],
-)
-
-alias(
-    name = "cxxbridge-cmd__cxxbridge",
-    actual = "@cxxbridge_vendor__cxxbridge-cmd-1.0.75//:cxxbridge__bin",
-    tags = ["manual"],
-)

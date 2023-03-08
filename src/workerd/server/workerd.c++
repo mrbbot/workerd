@@ -11,18 +11,24 @@
 #include <capnp/dynamic.h>
 #include <workerd/server/workerd.capnp.h>
 #include <workerd/server/workerd-meta.capnp.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
 #include "server.h"
-#include <unistd.h>
-#include <sys/syscall.h>
 #include <workerd/jsg/setup.h>
-#include <kj/async-unix.h>
-#include <sys/ioctl.h>
 #include <openssl/rand.h>
 #include <workerd/io/compatibility-date.h>
+
+#if _WIN32
+#include <iostream>
+#include <kj/async-win32.h>
+#include <kj/std/iostream.h>
+#else
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include <kj/async-unix.h>
+#endif
 
 #if __linux__
 #include <sys/inotify.h>
@@ -270,6 +276,22 @@ private:
   }
 };
 
+#elif _WIN32
+
+class FileWatcher {
+public:
+  FileWatcher(kj::Win32EventPort& port) {}
+
+  bool isSupported() { return false; }
+
+  void watch(kj::PathPtr path, kj::Maybe<const kj::ReadableFile&> file) {}
+
+  void watch(const kj::ReadableFile& file) {}
+
+  kj::Promise<void> onChange() { return kj::NEVER_DONE; }
+private:
+};
+
 #else
 
 class FileWatcher {
@@ -512,9 +534,11 @@ public:
         configOwner = kj::heap(kj::mv(mapping));
       }
     } else {
+#ifndef _WIN32
       context.warning(
           "Unable to find and open the program executable, so unable to determine if there is a "
           "compiled-in config file. Proceeding on the assumption that there is not.");
+#endif
     }
 
     // We don't want to force people to specify top-level file IDs in `workerd` config files, as
@@ -679,6 +703,11 @@ public:
     server.overrideSocket(kj::mv(name), kj::str(value));
   }
 
+#ifdef _WIN32
+  void overrideSocketFd(kj::StringPtr param) {
+    CLI_ERROR("Socket file descriptors are unsupported by your OS.");
+  }
+#else
   void validateSocketFd(uint fd, kj::StringPtr label) {
     int acceptcon = 0;
     socklen_t optlen = sizeof(acceptcon);
@@ -712,6 +741,7 @@ public:
     server.overrideSocket(kj::mv(name), io.lowLevelProvider->wrapListenSocketFd(
         fd, kj::LowLevelAsyncIoProvider::TAKE_OWNERSHIP));
   }
+#endif
 
   void overrideDirectory(kj::StringPtr param) {
     auto [ name, value ] = parseOverride(param);
@@ -728,7 +758,11 @@ public:
   }
 
   void watch() {
+#if _WIN32
+    auto& w = watcher.emplace(io.win32EventPort);
+#else
     auto& w = watcher.emplace(io.unixEventPort);
+#endif
     if (!w.isSupported()) {
       CLI_ERROR("File watching is not yet implemented on your OS. Sorry! Pull requests welcome!");
     }
@@ -749,7 +783,12 @@ public:
       }
 
       // Can't use mmap() because it's probably not a file.
+#if _WIN32
+      auto stream = kj::std::StdInputStream(std::cin);
+      auto reader = kj::heap<capnp::InputStreamMessageReader>(stream, CONFIG_READER_OPTIONS);
+#elif
       auto reader = kj::heap<capnp::StreamFdMessageReader>(STDIN_FILENO, CONFIG_READER_OPTIONS);
+#endif
       config = reader->getRoot<config::Config>();
       configOwner = kj::mv(reader);
     } else {
@@ -852,6 +891,11 @@ public:
     }
   }
 
+#ifdef _WIN32
+  void compile() {
+    CLI_ERROR("Building a self-contained binary is not yet implemented on your OS. Sorry! Pull requests welcome!");
+  }
+#else
   void compile() {
     if (hadErrors) {
       // Errors were already reported with context.error(), so contex.exit() will exit with a
@@ -934,6 +978,7 @@ public:
       }
     }
   }
+#endif
 
   template <typename Func>
   [[noreturn]] void serveImpl(Func&& func) noexcept {
@@ -968,9 +1013,13 @@ public:
 
   [[noreturn]] void serve() noexcept {
     serveImpl([&](jsg::V8System& v8System, config::Config::Reader config) {
+#ifdef _WIN32
+      return server.run(v8System, config);
+#else
       return server.run(v8System, config,
           // Gracefully drain when SIGTERM is received.
           io.unixEventPort.onSignal(SIGTERM).ignoreResult());
+#endif
     });
   }
 
@@ -998,6 +1047,11 @@ public:
     });
   }
 
+#ifdef _WIN32
+  void reloadFromConfigChange() {
+    KJ_UNREACHABLE("Watching is not yet implemented on Windows");
+  }
+#else
   [[noreturn]] void reloadFromConfigChange() {
     // Write extra spaces to fully overwrite the line that we wrote earlier with a CR but no LF:
     //     "Noticed configuration change, reloading shortly...\r"
@@ -1025,6 +1079,7 @@ public:
       }
     }
   }
+#endif
 
 private:
   kj::ProcessContext& context;
@@ -1072,6 +1127,11 @@ private:
     kj::Own<const kj::ReadableFile> file;
   };
 
+#if _WIN32
+  static kj::Maybe<ExeInfo> tryOpenExe(kj::StringPtr path) {
+    return nullptr;
+  }
+#else
   static kj::Maybe<ExeInfo> tryOpenExe(kj::StringPtr path) {
     // Use open() and not fs.getRoot().tryOpenFile() because we probably want to use true kernel
     // path resolution here, not KJ's logical path resolution.
@@ -1081,6 +1141,7 @@ private:
     }
     return ExeInfo { kj::str(path), kj::newDiskFile(kj::AutoCloseFd(fd)) };
   }
+#endif
 
   static kj::Maybe<ExeInfo> getExecFile(
       kj::ProcessContext& context, kj::Filesystem& fs) {
@@ -1150,6 +1211,11 @@ private:
     hadErrors = true;
   }
 
+#ifdef _WIN32
+  kj::Promise<void> waitForChanges(FileWatcher& watcher) {
+    KJ_UNREACHABLE("Watching is not yet implemented on Windows");
+  }
+#else
   kj::Promise<void> waitForChanges(FileWatcher& watcher) {
     // Wait for the FileWatcher to report a change, and then wait a moment for changes to settle
     // down, in case there's a bunch of changes all at once.
@@ -1178,13 +1244,16 @@ private:
 
     co_return;
   }
+#endif
 };
 
 }  // namespace workerd::server
 
 int main(int argc, char* argv[]) {
   ::kj::TopLevelProcessContext context(argv[0]);
+#ifndef _WIN32
   kj::UnixEventPort::captureSignal(SIGTERM);
+#endif
   workerd::server::CliMain mainObject(context, argv);
   return ::kj::runMainAndExit(context, mainObject.getMain(), argc, argv);
 }
