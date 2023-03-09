@@ -5,8 +5,8 @@
 #pragma once
 
 #include <kj/string.h>
-#include <workerd/io/trace.h>
-#include <workerd/io/worker-interface.h>
+#include "trace.h"
+#include "worker-interface.h"
 
 namespace workerd {
 
